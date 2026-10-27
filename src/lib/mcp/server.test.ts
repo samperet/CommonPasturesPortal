@@ -230,8 +230,12 @@ describe("the MCP server", () => {
     );
     expect(calls[0]).toEqual({
       tool: "create_page",
-      input: { title: "Plan", body: "x", circle: "lcc" },
+      input: { title: "Plan", body: "x", circle: "lcc", parent: undefined, draft: false },
     });
+    expect(
+      textOf(await write("create_page", { title: "Sub", parent: "Pellet Stove", draft: true }))
+    ).toBe("Started “Sub”");
+    expect(calls.at(-1)?.input).toMatchObject({ parent: "Pellet Stove", draft: true });
     expect(isError(await write("create_page", { body: "x" }))).toBe(true);
     const refused = await write("create_page", { title: "Plan", circle: "board" });
     expect(isError(refused)).toBe(true);
@@ -258,6 +262,8 @@ describe("the MCP server", () => {
     expect(textOf(conflict)).toContain('baseUpdatedAt "2026-09-01T12:00:00Z"');
 
     expect(isError(await write("move_page", { page: "pellet-stove" }))).toBe(true);
+    expect(textOf(await write("move_page", { page: "pellet-stove", parent: "top" }))).toBe("Moved");
+    expect(calls.at(-1)?.input).toEqual({ page: "pellet-stove", circle: undefined, parent: "top" });
     expect(textOf(await write("move_page", { page: "pellet-stove", circle: "crew" }))).toBe(
       "Moved"
     );

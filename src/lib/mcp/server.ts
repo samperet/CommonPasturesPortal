@@ -19,7 +19,15 @@ export type Done = { ok: true; said: string } | { ok: false; message: string };
 
 /** What a key that can write may do; each checks the resident's rights first. */
 export interface McpWriter {
-  createPage: (input: { title: string; body: string; circle?: string }) => Promise<Done>;
+  createPage: (input: {
+    title: string;
+    body: string;
+    circle?: string;
+    /** The page (slug or title) to start it inside; its circle keeps the new page. */
+    parent?: string;
+    /** Only its author and admins see it until it's published in CVC. */
+    draft?: boolean;
+  }) => Promise<Done>;
   /** A conflict (someone saved since `baseUpdatedAt`) hands back the page as it is now. */
   updatePage: (input: {
     page: string;
@@ -27,7 +35,8 @@ export interface McpWriter {
     body?: string;
     baseUpdatedAt?: string;
   }) => Promise<Done | { conflict: { body: string; updatedAt: string; updatedBy: string } }>;
-  movePage: (input: { page: string; circle: string }) => Promise<Done>;
+  /** To another circle (`circle`), inside another page (`parent`; "top": the circle's top level), or both. */
+  movePage: (input: { page: string; circle?: string; parent?: string }) => Promise<Done>;
   deletePage: (input: { page: string }) => Promise<Done>;
   /** A circle's document types (null: no such circle). */
   documentTypes: (circle: string) => Promise<{ id: string; label: string }[] | null>;
@@ -212,6 +221,16 @@ const WRITE_TOOLS = [
         title: { type: "string", description: "Its title (unique at CVC)" },
         body: { type: "string", description: "Its text, as Markdown" },
         circle: circleProperty("that keeps it"),
+        parent: {
+          type: "string",
+          description:
+            "The page (slug or exact title) to start it inside; that page's circle keeps the new one",
+        },
+        draft: {
+          type: "boolean",
+          description:
+            "Start it as a draft: only the key's owner and admins see it until it's published in CVC",
+        },
       },
       required: ["title"],
     },
@@ -237,11 +256,19 @@ const WRITE_TOOLS = [
   {
     name: "move_page",
     description:
-      "Give a page to another circle (its keeper). Only those who keep the page may, and only to a circle they're in.",
+      "Give a page to another circle (its keeper), or put it inside another page of its circle (or back at the circle's top level). Only those who keep the page may, and only to a circle they're in.",
     inputSchema: {
       type: "object",
-      properties: { page: pageProperty, circle: circleProperty("to keep it from now on") },
-      required: ["page", "circle"],
+      properties: {
+        page: pageProperty,
+        circle: circleProperty("to keep it from now on"),
+        parent: {
+          type: "string",
+          description:
+            'The page (slug or exact title) to put it inside, or "top" for the circle\'s top level',
+        },
+      },
+      required: ["page"],
     },
   },
   {
@@ -345,6 +372,8 @@ async function callWriteTool(write: McpWriter, name: string, args: Json | undefi
           title,
           body: opt(args, "body") ?? "",
           circle: str(args, "circle") || undefined,
+          parent: str(args, "parent") || undefined,
+          draft: args?.draft === true,
         })
       );
     }
@@ -369,9 +398,13 @@ async function callWriteTool(write: McpWriter, name: string, args: Json | undefi
     }
     case "move_page": {
       const page = str(args, "page");
-      const circle = str(args, "circle");
-      if (!page || !circle) return failed("Say which page, and the id of the circle to keep it");
-      return done(await write.movePage({ page, circle }));
+      const circle = str(args, "circle") || undefined;
+      const parent = opt(args, "parent");
+      if (!page || (!circle && parent === undefined))
+        return failed(
+          'Say which page, and the id of the circle to keep it or the page to put it inside ("top" for the circle\'s top level)'
+        );
+      return done(await write.movePage({ page, circle, parent }));
     }
     case "delete_page": {
       const page = str(args, "page");

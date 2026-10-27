@@ -10,6 +10,7 @@ import {
 import type { Actor } from "@/lib/auth/actor";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import { readPages, type WikiPage } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { consentState as pageConsentState, pageStage } from "@/lib/wiki/consent";
 import { imageKey, listWikiImages } from "@/lib/wiki/images";
 import { listWikiPolls } from "@/lib/polls/wiki";
@@ -115,7 +116,7 @@ export async function planExport(
 ): Promise<ExportPlan | { error: ExportFailure }> {
   const { directory, actor } = session;
   const [pages, documents, proposals, polls, types, texts] = await Promise.all([
-    readPages(),
+    readPages().then((all) => visiblePages(all, { id: actor.userId, personId: actor.personId })),
     listDocuments(),
     listProposals(),
     listWikiPolls(),

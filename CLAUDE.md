@@ -47,6 +47,7 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 | `src/lib/time.ts` | `TIME_ZONE` (Vermont), `todayInVermont`, `timeAgo` |
 | `src/lib/email/` | Sending (`deliver.ts`: Brevo, then Resend as backup), the free-plan quotas, the shared email layout, notification emails, test mode |
 | `src/lib/groups/` | Circle forums: conversations and polls, with app notifications to the circle's members |
+| `src/lib/wiki/tree.ts` | Pages inside pages (`parentId`), their order (`order`, a fractional index: `orderBetween`), `buildTree`, `ancestorsOf`, `descendantsOf`, `canNest`; pure, used by the store, the sidebar and breadcrumbs. Drafts: `visiblePages`/`canSeePage` in `access.ts` is the one gate wherever pages are listed or read for a person |
 | `src/lib/wiki/follows.ts`, `mentions.ts` | Following pages (told when they change, hourly at most) and @-mentions of residents (told once a page); topics `following` and `mentions` |
 | `src/lib/wiki/prose.ts` | Pages' Markdown ↔ the visual editor's (TipTap) document; the editor itself is `components/wiki/rich-editor.tsx` with its schema in `editor-schema.ts` (find and replace: `editor-find.ts`, `find-bar.tsx`) |
 | `src/lib/wiki/perspectives.ts` | Alternative versions of a page ("perspectives" in code): copies one resident changes, compared side by side (`compareRows` in `merge.ts`), brought up to date with `mergeText`, made the page by its editors |

@@ -592,9 +592,22 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
     page's or link's) and `proposals/snapshots/<snapshotId>` (a file's); when a circle is deleted
     its proposals not yet consented go to the Board.
 - **Written pages** (the wiki) – one wiki for all of CVC, its pages listed in Documents. Every
-  resident can see every page. Every page has a **parent circle**, and its own setting for **who
-  can edit it** (nothing is inherited) — its parent circle (the default; anyone, for Community's
-  pages) or any resident. The parent circle's members (and the Board and admins, who can always
+  resident can see every published page. Every page has a **parent circle**, and its own setting
+  for **who can edit it** (nothing is inherited) — its parent circle (the default; anyone, for
+  Community's pages) or any resident. Pages can sit **inside one another**, as in Outline: a
+  page's `parentId` names a page of the same circle, and `order` its place among its siblings (a
+  fractional index from `lib/wiki/tree.ts`, so one move rewrites one page; a page never moved yet
+  sorts after the ordered ones, by title). A page goes only inside a page its own circle keeps,
+  never inside itself or one of its own pages (`movePage`, `PATCH …/pages/<slug>` with
+  `parentId`/`order`: whoever looks after the page); a new keeper takes the pages inside along and
+  lifts the page to the new circle's top level; the trash takes a page's branch along and brings
+  it back with it (`withPage` in `wiki/trash.json`). A page can have an **emoji** (`icon`) and be
+  shown **full width** (`fullWidth`), both settings rather than versions. A page started as a
+  **draft** (`draft: { by }`) is seen only by its author and admins — in lists, search, the map,
+  the documents list, exports, assistants' tools and the residents' backup alike
+  (`visiblePages`/`canSeePage` in `lib/wiki/access.ts` is the one gate) — until it's published
+  (`POST …/pages/<slug>/publish`: its author, or whoever looks after it; those it mentions are told
+  then). The parent circle's members (and the Board and admins, who can always
   edit everything) change the parent circle and that setting, and can delete the page — which
   moves it to the **trash** (`/documents/trash`, linked from Documents and its menu;
   `wiki/trash.json`, `lib/wiki/trash.ts`) for 30 days, its history, comments and alternative
@@ -746,7 +759,7 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   address); tools: `search`, `list_circles`, `list_pages`, `read_page`, `list_documents`,
   `read_document`. A key only reads unless **Let it also write** is ticked when it's made: a key
   that can write (marked **Can write** in the list; `scope` in `mcp/keys.json`) also gets
-  `create_page`, `update_page` (with `baseUpdatedAt` from `read_page`, so an edit made meanwhile
+  `create_page` (optionally `parent`, a page to start it inside, and `draft`), `update_page` (with `baseUpdatedAt` from `read_page`, so an edit made meanwhile
   is handed back to merge rather than overwritten), `move_page`, `delete_page` (to the trash),
   `list_document_types`, `add_link`, `add_file` (base64, up to 3 MB; a new version with
   `replaces`), `update_document` and `delete_document` — each run as the resident's own account

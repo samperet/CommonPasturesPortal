@@ -1,5 +1,6 @@
 import { listDocuments } from "@/lib/documents/store";
 import { readPages, type WikiPage } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { readResources } from "./store";
 import { defaultResources, showResources, type ShownResource } from "./shared";
 
@@ -18,7 +19,7 @@ export const openToNewcomers = (page: Pick<WikiPage, "view">) =>
 /** The documents, and the pages newcomers may read: what the welcome page can offer. */
 export async function resourceChoices() {
   const [documents, pages] = await Promise.all([listDocuments(), readPages()]);
-  return { documents, pages: pages.filter(openToNewcomers) };
+  return { documents, pages: visiblePages(pages, null).filter(openToNewcomers) };
 }
 
 export async function welcomeResources(): Promise<ShownResource[]> {

@@ -6,6 +6,7 @@ import { readDirectory } from "@/lib/directory/store";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import { searchSite } from "@/lib/site-search";
 import { readPages } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { excerptOf } from "@/lib/wiki/excerpt";
 import { getDocumentText, listDocuments } from "@/lib/documents/store";
 import { readTypeMap, typeLabelFor } from "@/lib/documents/type-store";
@@ -76,7 +77,7 @@ function sourceFor(directory: DirectoryDocument): McpSource {
         ...(parentOf(circles, circle) ? { parentId: parentOf(circles, circle)!.id } : {}),
       })),
     pages: async () =>
-      (await readPages()).map((page) => ({
+      visiblePages(await readPages(), null).map((page) => ({
         id: page.id,
         slug: page.slug,
         title: page.title,
@@ -85,7 +86,7 @@ function sourceFor(directory: DirectoryDocument): McpSource {
         excerpt: excerptOf(page.body, 160),
       })),
     page: async (ref) => {
-      const page = await findPage(ref);
+      const page = await findPage(ref, null);
       return page
         ? {
             title: page.title,

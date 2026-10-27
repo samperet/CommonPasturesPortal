@@ -24,6 +24,7 @@ import { readTypeMap, typeLabelFor, typesFor } from "@/lib/documents/type-store"
 import { chunkCount, chunkKey, readUploadToken } from "@/lib/documents/upload-token";
 import { announceDocument } from "@/lib/documents/announce";
 import { readPages, type WikiPage } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { consentState as pageConsentState, pageStage } from "@/lib/wiki/consent";
 import { pageDate, pageListing, searchPages } from "@/lib/wiki/listing";
 import { searchTerms, snippetFor } from "@/lib/search";
@@ -107,7 +108,7 @@ export async function GET(request: NextRequest) {
   const label = (doc: DocumentRecord) => typeLabelFor(doc, types);
   const circleName = (id: string) => directory.circles.find((entry) => entry.id === id)?.name ?? "";
 
-  const allPages = withPages ? await readPages() : [];
+  const allPages = withPages ? visiblePages(await readPages(), user) : [];
   // Listed with the pages, a file made into a page is listed through it (while it's there).
   const livePageIds = new Set(allPages.map((page) => page.id));
   const inCircle = (await listDocuments()).filter(

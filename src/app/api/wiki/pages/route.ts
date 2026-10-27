@@ -5,7 +5,7 @@ import { setFollowing } from "@/lib/wiki/follows";
 import { tellMentioned } from "@/lib/wiki/mentions";
 import { shortDate, todayInVermont } from "@/lib/time";
 import { excerptOf } from "@/lib/wiki/excerpt";
-import { canEditPage, circlesYouKeep } from "@/lib/wiki/access";
+import { canEditPage, canSeePage, circlesYouKeep, visiblePages } from "@/lib/wiki/access";
 import { wikiProblem, wikiSession } from "@/lib/wiki/http";
 import { COMMUNITY_ID } from "@/lib/circles/store";
 import { canUploadTo } from "@/lib/documents/access";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const ctx = await wikiSession();
   if ("error" in ctx) return ctx.error;
-  const pages = (await readPages())
+  const pages = visiblePages(await readPages(), ctx.user)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map((page) => ({ ...pageSummary(page), excerpt: excerptOf(page.body, 300) }));
   return NextResponse.json(
@@ -32,18 +32,27 @@ export async function GET() {
  * circle unless you say otherwise; with neither, by Community. With
  * `template` (a built-in one's key, or a template page's id) and no body of
  * its own, it starts with the template's text, today's date and its circle
- * filled in (`lib/wiki/templates.ts`). Its creator follows it from the
- * start, and anyone it mentions is told.
+ * filled in (`lib/wiki/templates.ts`). Inside a page (`parentId`, one its
+ * keeper keeps) it goes last among that page's pages. As a `draft` only its
+ * author and admins see it until it's published (`…/publish`). Its creator
+ * follows it from the start, and anyone it mentions is told once it's
+ * published.
  */
 export async function POST(request: NextRequest) {
   const ctx = await wikiSession();
   if ("error" in ctx) return ctx.error;
   const parsed = await readBody(request, pageInputSchema);
   if ("error" in parsed) return parsed.error;
-  const { from, keeper: asked, template, ...input } = parsed.data;
-  const source = from && !asked ? await getPageById(from) : null;
+  const { from, keeper: asked, template, parentId, draft, icon, ...input } = parsed.data;
+  const parent = parentId ? await getPageById(parentId) : null;
+  if (parentId && (!parent || !canSeePage(ctx.user, parent)))
+    return problem("The page to put it inside no longer exists", 404);
+  if (parent && asked && asked !== parent.keeper)
+    return problem("A page goes inside a page its own circle keeps", 400);
+  const source = from && !asked && !parent ? await getPageById(from) : null;
   const keeper =
     asked ??
+    parent?.keeper ??
     (source && canEditPage(ctx.user, ctx.directory, source) ? source.keeper : COMMUNITY_ID);
   if (!ctx.directory.circles.some((circle) => circle.id === keeper))
     return problem("Choose the circle that keeps it", 404);
@@ -62,12 +71,19 @@ export async function POST(request: NextRequest) {
       circle,
     });
   }
-  const result = await createPage(ctx.actor, { ...input, body, keeper });
+  const result = await createPage(ctx.actor, {
+    ...input,
+    body,
+    keeper,
+    parentId: parent?.id ?? null,
+    draft: !!draft,
+    ...(icon ? { icon } : {}),
+  });
   if (!result.ok) return wikiProblem(result.reason);
   if (result.page) {
-    // Whoever starts a page follows it; anyone it mentions hears.
+    // Whoever starts a page follows it; anyone it mentions hears (once it's published).
     await setFollowing(result.page.id, ctx.actor.userId, true);
-    await tellMentioned(result.page, ctx.actor);
+    if (!result.page.draft) await tellMentioned(result.page, ctx.actor);
   }
   return NextResponse.json({ page: result.page }, { status: 201 });
 }

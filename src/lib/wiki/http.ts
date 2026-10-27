@@ -1,7 +1,7 @@
 import type { NextResponse } from "next/server";
 import { circleContext } from "@/lib/circles/access";
 import { problem } from "@/lib/http";
-import { canEditPage, canManagePage } from "./access";
+import { canEditPage, canManagePage, canSeePage } from "./access";
 import { getPage, isSlug, type Failure, type WikiPage } from "./store";
 import type { Failure as CommentFailure } from "./comments";
 import type { Failure as PerspectiveFailure } from "./perspectives";
@@ -44,7 +44,8 @@ export async function pageContext(
   const ctx = await wikiSession();
   if ("error" in ctx) return ctx;
   const page: WikiPage | null = isSlug(slug) ? await getPage(slug) : null;
-  if (!page) return { error: wikiProblem("not_found") };
+  // A draft is nobody else's business until it's published.
+  if (!page || !canSeePage(ctx.user, page)) return { error: wikiProblem("not_found") };
   const canEdit = canEditPage(ctx.user, ctx.directory, page);
   const canManage = canManagePage(ctx.user, ctx.directory, page);
   if (need === "edit" && !canEdit)
@@ -69,6 +70,11 @@ export function wikiProblem(reason: Failure) {
       return problem("That version no longer exists", 404);
     case "conflict":
       return problem("Someone else saved this page while you were editing it", 409);
+    case "bad_parent":
+      return problem(
+        "A page can only go inside a page its own circle keeps — not inside itself or one of its own pages",
+        400
+      );
   }
 }
 

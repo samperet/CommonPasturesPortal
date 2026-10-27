@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const ctx = await wikiSession();
   if ("error" in ctx) return ctx.error;
-  return NextResponse.json(await buildWikiGraph(ctx.directory), {
+  return NextResponse.json(await buildWikiGraph(ctx.directory, ctx.user), {
     headers: { "Cache-Control": "private, no-store" },
   });
 }

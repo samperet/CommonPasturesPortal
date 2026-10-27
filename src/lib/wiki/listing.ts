@@ -36,6 +36,12 @@ export interface PageListing {
   decideOn: string | null;
   excerpt: string;
   snippet?: string | null;
+  /** Its emoji, if it has one. */
+  icon: string | null;
+  /** The page it sits inside, if any. */
+  parentId: string | null;
+  /** Not yet published (only its author and admins get to see it listed). */
+  draft: boolean;
 }
 
 export function pageListing(
@@ -66,6 +72,9 @@ export function pageListing(
     decideOn: page.proposal?.decideOn ?? null,
     excerpt: excerptOf(page.body, 220),
     ...(snippet !== undefined ? { snippet } : {}),
+    icon: page.icon ?? null,
+    parentId: page.parentId ?? null,
+    draft: !!page.draft,
   };
 }
 

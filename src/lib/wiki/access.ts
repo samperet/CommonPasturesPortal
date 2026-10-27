@@ -5,9 +5,11 @@ import type { WikiPageSummary } from "./store";
 import { sitsOnBoard } from "@/lib/circles/ids";
 
 /**
- * Who can edit and look after each wiki page. Every signed-in resident can
- * see every page. Each page sets its own (nothing is inherited from the page
- * it's under):
+ * Who can see, edit and look after each wiki page. Every signed-in resident
+ * can see every published page; a draft only its author and admins
+ * (`visiblePages` is the one gate, applied wherever pages are listed or read
+ * for a person). Each page sets its own editing rule (nothing is inherited
+ * from the page it's under):
  *
  * - editing it: its keeper circle (the default), or any resident;
  * - looking after it — its keeper, who edits it, its consent — its keeper
@@ -21,6 +23,18 @@ import { sitsOnBoard } from "@/lib/circles/ids";
 
 export type WikiViewer = { id: string; personId?: string | null; isAdmin?: boolean };
 type Page = Pick<WikiPageSummary, "keeper" | "edit">;
+
+/** Whether a page is there for this viewer: every published page; a draft, its author's and admins'. */
+export const canSeePage = (
+  viewer: Pick<WikiViewer, "id" | "personId"> | null,
+  page: Pick<WikiPageSummary, "draft">
+) => !page.draft || (!!viewer && (page.draft.by === viewer.id || isAdmin(viewer)));
+
+/** The pages this viewer may see (null: nobody in particular — no drafts). */
+export const visiblePages = <T extends Pick<WikiPageSummary, "draft">>(
+  pages: T[],
+  viewer: Pick<WikiViewer, "id" | "personId"> | null
+) => pages.filter((page) => canSeePage(viewer, page));
 
 const onBoard = (user: WikiViewer, directory: DirectoryDocument) =>
   isAdmin(user) || sitsOnBoard(directory.circles, user.personId);

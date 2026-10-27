@@ -11,6 +11,7 @@ import { categorySlug } from "@/lib/resources/slug";
 import { listSkills } from "@/lib/skills/store";
 import { listTasks } from "@/lib/tasks/store";
 import { readPages } from "@/lib/wiki/store";
+import { visiblePages, type WikiViewer } from "@/lib/wiki/access";
 import { occurrences, searchTerms, snippetFor } from "@/lib/search";
 import { excerptOf } from "@/lib/wiki/excerpt";
 import { unmark, unperson } from "@/lib/wiki/links";
@@ -176,7 +177,7 @@ export async function searchSite(
   query: string,
   directory: DirectoryDocument,
   perGroup = 5,
-  { admin = false } = {}
+  { admin = false, viewer = null }: { admin?: boolean; viewer?: WikiViewer | null } = {}
 ): Promise<SearchGroup[]> {
   const terms = searchTerms(query);
   if (!terms.length) return [];
@@ -202,7 +203,7 @@ export async function searchSite(
       searchForum(query),
       listRecommendations(),
       listLoanItems(),
-      readPages(),
+      readPages().then((pages) => visiblePages(pages, viewer)),
       listProposals(),
       Promise.all(
         circles

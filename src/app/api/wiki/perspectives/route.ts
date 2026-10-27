@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { circleContext } from "@/lib/circles/access";
 import { readPages } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { listPerspectives } from "@/lib/wiki/perspectives";
 import { isLive, summaryOf, type PerspectiveSummary } from "@/lib/wiki/perspectives-shared";
 
@@ -19,7 +20,9 @@ export async function GET(request: NextRequest) {
     .map((id) => id.trim().toLowerCase())
     .filter((id) => /^[0-9a-f-]{36}$/.test(id))
     .slice(0, 20);
-  const pages = (await readPages()).filter((page) => wanted.includes(page.id));
+  const pages = visiblePages(await readPages(), ctx.user).filter((page) =>
+    wanted.includes(page.id)
+  );
   const versions: { pageId: string; perspectives: PerspectiveSummary[] }[] = await Promise.all(
     pages.map(async (page) => ({
       pageId: page.id,

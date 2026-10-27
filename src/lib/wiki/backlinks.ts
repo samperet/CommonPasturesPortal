@@ -22,7 +22,7 @@ export async function backlinksTo(
   const wanted = page.title.toLowerCase();
   const circles = directory.circles;
   return (await readPages())
-    .filter((entry) => entry.id !== page.id)
+    .filter((entry) => entry.id !== page.id && !entry.draft)
     .filter((entry) =>
       [...wikiLinksIn(entry.body, circles), ...embeddedPages(entry.body, circles)].some(
         (link) => link.kind === "page" && link.title.toLowerCase() === wanted

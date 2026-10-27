@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHistory, pageUpdateSchema, updatePage, type WikiPage } from "@/lib/wiki/store";
+import {
+  getHistory,
+  movePage,
+  pageUpdateSchema,
+  updatePage,
+  type WikiPage,
+} from "@/lib/wiki/store";
 import { trashPage } from "@/lib/wiki/trash";
 import { pageContext, wikiProblem } from "@/lib/wiki/http";
 import { canMovePageTo, circlesYouKeep } from "@/lib/wiki/access";
@@ -43,7 +49,9 @@ export async function GET(_request: Request, { params }: Params) {
 /**
  * Save a new version (title and/or body; its editors), its settings —
  * keeper, who edits it, whether it's offered as a template (the circle that
- * keeps it, or the Board; a page moves only to a circle you're in) — who was present and the meeting's date
+ * keeps it, or the Board; a page moves only to a circle you're in), its
+ * place in the tree (`parentId`, `order`: the same), its emoji and width
+ * (its editors) — who was present and the meeting's date
  * (meeting notes; its editors), or withdraw a proposal or record of consent
  * from before proposals were their own (consent: the circle's members, the
  * Board). Proposals and consent are now `/api/proposals`. Polls newly in the
@@ -62,6 +70,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       "Only the circle that keeps this page (or the Board) can change its settings",
       403
     );
+  const placing = update.parentId !== undefined || update.order !== undefined;
+  if (placing && !ctx.canManage)
+    return problem("Only the circle that keeps this page (or the Board) can move it", 403);
   if (update.consent !== undefined && !ctx.canConsent)
     return problem("Only the circle's members and the Board can withdraw its consent", 403);
   if (update.keeper && update.keeper !== ctx.page.keeper) {
@@ -89,6 +100,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     );
   }
   if (!result.ok) return wikiProblem(result.reason);
+  if (placing) {
+    const moved = await movePage(params.slug, { parentId: update.parentId, order: update.order });
+    if (!moved.ok) return wikiProblem(moved.reason);
+    if (result.page && moved.page)
+      result.page = { ...result.page, parentId: moved.page.parentId, order: moved.page.order };
+  }
   if (result.page) {
     const had = new Set(pollIdsIn(before.body));
     const fresh = await claimAnnouncements(

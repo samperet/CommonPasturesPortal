@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { Zip, ZipDeflate, ZipPassThrough, strToU8 } from "fflate";
 import { listKeys, openBinaryStream, writeBinary, writeBinaryStream } from "@/lib/storage";
 import { readPages } from "@/lib/wiki/store";
+import { visiblePages } from "@/lib/wiki/access";
 import { readDirectory } from "@/lib/directory/store";
 import { siteUrl } from "@/lib/site-url";
 import { financeViewers } from "@/lib/circles/features";
@@ -101,7 +102,10 @@ async function* backupZip(
     );
 
   // The data, key for key (in a community backup, not finances kept to a circle's members).
-  const [pages, directory] = await Promise.all([readPages(), readDirectory()]);
+  const [pages, directory] = await Promise.all([
+    readPages().then((all) => (kind === "community" ? visiblePages(all, null) : all)),
+    readDirectory(),
+  ]);
   const privateFinances = new Set(
     (directory?.circles ?? [])
       .filter((circle) => kind === "community" && financeViewers(circle) !== "everyone")

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DirectoryDocument } from "@/lib/directory/types";
-import { canEditPage, canManagePage, canMovePageTo, circlesYouKeep } from "./access";
+import {
+  canEditPage,
+  canManagePage,
+  canMovePageTo,
+  canSeePage,
+  circlesYouKeep,
+  visiblePages,
+} from "./access";
 
 /** Who edits a page, and where it can move: only to a circle you're in (the Board: anywhere). */
 
@@ -50,5 +57,18 @@ describe("wiki access", () => {
   it("is moved only by those who look after it, even where anyone can edit it", () => {
     expect(canManagePage(dev, directory, page("anyone"))).toBe(false);
     expect(canMovePageTo(dev, directory, page("anyone"), "cht")).toBe(false);
+  });
+
+  it("shows a draft only to its author (and admins), and a published page to everyone", () => {
+    const published = { id: "1", draft: undefined };
+    const carasDraft = { id: "2", draft: { by: "u-cara" } };
+    expect(canSeePage(dev, published)).toBe(true);
+    expect(canSeePage(null, published)).toBe(true);
+    expect(canSeePage(cara, carasDraft)).toBe(true);
+    expect(canSeePage(dev, carasDraft)).toBe(false);
+    expect(canSeePage(null, carasDraft)).toBe(false);
+    expect(visiblePages([published, carasDraft], dev).map((page) => page.id)).toEqual(["1"]);
+    expect(visiblePages([published, carasDraft], cara).map((page) => page.id)).toEqual(["1", "2"]);
+    expect(visiblePages([published, carasDraft], null).map((page) => page.id)).toEqual(["1"]);
   });
 });

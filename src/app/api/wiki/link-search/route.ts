@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listDocuments } from "@/lib/documents/store";
 import { listPages } from "@/lib/wiki/store";
 import { wikiSession } from "@/lib/wiki/http";
+import { visiblePages } from "@/lib/wiki/access";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     return (mine ? 0 : 10) + (at === 0 ? 0 : /\s/.test(lower[at - 1] ?? "") ? 1 : 2);
   };
 
-  const all = await listPages();
+  const all = visiblePages(await listPages(), ctx.user);
   const pages = all
     .flatMap((page) => {
       const score = page.id === pageId ? null : rank(page.title, page.keeper === circleId);

@@ -2,6 +2,7 @@ import type { DirectoryDocument } from "@/lib/directory/types";
 import { wikiLinksIn } from "@/lib/wiki/links";
 import { embeddedPages } from "@/lib/wiki/sections";
 import { readPages, type WikiPage } from "@/lib/wiki/store";
+import { visiblePages, type WikiViewer } from "./access";
 import { excerptOf } from "@/lib/wiki/excerpt";
 import { parentOf } from "@/lib/circles/tiers";
 
@@ -74,9 +75,12 @@ export function graphCircles<T extends { id: string; name: string; parentId?: st
 }
 
 /** The map: every page, and the links between them. */
-export async function buildWikiGraph(directory: DirectoryDocument): Promise<WikiGraph> {
+export async function buildWikiGraph(
+  directory: DirectoryDocument,
+  viewer: WikiViewer | null = null
+): Promise<WikiGraph> {
   const circles = directory.circles;
-  const pages = await readPages();
+  const pages = visiblePages(await readPages(), viewer);
 
   const nodes = new Map<string, GraphNode>();
   const edges: GraphEdge[] = [];

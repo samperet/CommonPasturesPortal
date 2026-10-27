@@ -194,10 +194,13 @@ circle) and `ProposalHostContext` (proposal cards in the notes offer **Consent a
 record against that meeting.
 
 Deleting a page moves it to `wiki/trash.json` (`lib/wiki/trash.ts`) for 30 days, out of
-`wiki/pages.json` — so nothing that reads pages needs to skip it — with its history, comments
+`wiki/pages.json` — so nothing that reads pages needs to skip it — with the pages inside it
+(`withPage`: they aren't listed on their own, and come back with it) and its history, comments
 and versions left in their own documents; `reinsertPage` (`store.ts`) puts it back, retitled or
 re-addressed if need be. Pages past their days are purged lazily, whenever the trash is read or
-changed.
+changed. Drafts stay in `wiki/pages.json` with `draft: { by }`; everything that lists or reads
+pages for a person goes through `visiblePages` (`lib/wiki/access.ts`), which leaves other
+people's drafts out (admins see them all).
 
 **Alternative versions** of a page (`lib/wiki/perspectives.ts`, types in `perspectives-shared.ts`;
 "perspectives" in code and storage) are copies of a page that one resident changes, kept per page in

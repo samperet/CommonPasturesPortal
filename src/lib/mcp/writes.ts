@@ -6,6 +6,7 @@ import { COMMUNITY_ID } from "@/lib/circles/ids";
 import { featureEnabled } from "@/lib/circles/features";
 import {
   createPage,
+  movePage,
   pageInputSchema,
   pageUpdateSchema,
   readPages,
@@ -14,7 +15,7 @@ import {
   type Failure as WikiFailure,
 } from "@/lib/wiki/store";
 import { TRASH_DAYS, trashPage } from "@/lib/wiki/trash";
-import { canEditPage, canManagePage, canMovePageTo } from "@/lib/wiki/access";
+import { canEditPage, canManagePage, canMovePageTo, visiblePages } from "@/lib/wiki/access";
 import { setFollowing, tellFollowers } from "@/lib/wiki/follows";
 import { tellMentioned } from "@/lib/wiki/mentions";
 import { canManageDocument, canUploadTo } from "@/lib/documents/access";
@@ -65,7 +66,9 @@ const wikiMessage = (reason: WikiFailure) =>
         ? "Someone else saved this page while you were editing it"
         : reason === "no_version"
           ? "That version no longer exists"
-          : "That page no longer exists";
+          : reason === "bad_parent"
+            ? "A page can only go inside a page its own circle keeps — not inside itself or one of its own pages"
+            : "That page no longer exists";
 
 const documentMessage = (reason: "full" | "conflict" | "not_found") =>
   reason === "full"
@@ -74,11 +77,14 @@ const documentMessage = (reason: "full" | "conflict" | "not_found") =>
       ? "Someone else changed it at the same moment — try again"
       : "That document no longer exists";
 
-/** A page by its slug, or its exact title (any case). */
-export async function findPage(ref: string): Promise<WikiPage | null> {
+/** A page by its slug, or its exact title (any case) — among the pages this viewer sees (null: no drafts). */
+export async function findPage(
+  ref: string,
+  viewer: Parameters<typeof visiblePages>[1]
+): Promise<WikiPage | null> {
   const wanted = ref.trim().toLowerCase();
   return (
-    (await readPages()).find(
+    visiblePages(await readPages(), viewer).find(
       (page) => page.slug === wanted || page.title.toLowerCase() === wanted
     ) ?? null
   );
@@ -142,29 +148,42 @@ export function writerFor(
   };
 
   return {
-    async createPage({ title, body, circle }) {
-      const keeper = circle || COMMUNITY_ID;
+    async createPage({ title, body, circle, parent: parentRef, draft }) {
+      const parent = parentRef ? await findPage(parentRef, user) : null;
+      if (parentRef && !parent) return noPage(parentRef);
+      if (parent && circle && circle !== parent.keeper)
+        return no("A page goes inside a page its own circle keeps");
+      const keeper = parent?.keeper ?? circle ?? COMMUNITY_ID;
       const found = circleFor(keeper);
       if (!found) return noCircle(keeper);
       if (!canUploadTo(user, directory, keeper))
         return no("You can only start pages kept by your own circles");
       const parsed = pageInputSchema.pick({ title: true, body: true }).safeParse({ title, body });
       if (!parsed.success) return no(invalid(parsed.error));
-      const result = await createPage(actor, { ...parsed.data, keeper });
+      const result = await createPage(actor, {
+        ...parsed.data,
+        keeper,
+        parentId: parent?.id ?? null,
+        draft: !!draft,
+      });
       if (!result.ok) return no(wikiMessage(result.reason));
       if (!result.page) return no("That page no longer exists");
-      // Whoever starts a page follows it; anyone it mentions hears.
+      // Whoever starts a page follows it; anyone it mentions hears (once it's published).
       await setFollowing(result.page.id, actor.userId, true);
-      await tellMentioned(result.page, actor);
+      if (!result.page.draft) await tellMentioned(result.page, actor);
       return yes(
-        `Started “${result.page.title}” in ${found.name} (slug: ${result.page.slug}, updatedAt: ${
-          result.page.updatedAt
-        }): ${pageUrl(result.page)}`
+        `Started “${result.page.title}” in ${found.name}${
+          parent ? ` inside “${parent.title}”` : ""
+        }${
+          result.page.draft
+            ? " as a draft (only its author and admins see it until it's published in CVC)"
+            : ""
+        } (slug: ${result.page.slug}, updatedAt: ${result.page.updatedAt}): ${pageUrl(result.page)}`
       );
     },
 
     async updatePage({ page: ref, title, body, baseUpdatedAt }) {
-      const page = await findPage(ref);
+      const page = await findPage(ref, user);
       if (!page) return noPage(ref);
       if (!canEditPage(user, directory, page))
         return no("Only those this page is open to can edit it");
@@ -172,7 +191,7 @@ export function writerFor(
       if (!parsed.success) return no(invalid(parsed.error));
       const result = await updatePage(page.slug, actor, parsed.data);
       if (!result.ok && result.reason === "conflict") {
-        const now = (await findPage(page.slug)) ?? page;
+        const now = (await findPage(page.slug, user)) ?? page;
         return {
           conflict: { body: now.body, updatedAt: now.updatedAt, updatedBy: now.updatedBy.name },
         };
@@ -189,24 +208,41 @@ export function writerFor(
       );
     },
 
-    async movePage({ page: ref, circle: circleId }) {
-      const page = await findPage(ref);
+    async movePage({ page: ref, circle: circleId, parent: parentRef }) {
+      const page = await findPage(ref, user);
       if (!page) return noPage(ref);
-      const circle = circleFor(circleId);
-      if (!circle) return noCircle(circleId);
       if (!canManagePage(user, directory, page))
         return no("Only the circle that keeps this page (or the Board) can change that");
-      if (!canMovePageTo(user, directory, page, circle.id))
-        return no(`Join ${circle.name} first: only its members can move pages to it`);
-      if (page.keeper === circle.id)
-        return yes(`“${page.title}” is already kept by ${circle.name}: ${pageUrl(page)}`);
-      const result = await updatePage(page.slug, actor, { keeper: circle.id });
-      if (!result.ok) return no(wikiMessage(result.reason));
-      return yes(`Moved “${page.title}” to ${circle.name}: ${pageUrl(page)}`);
+      const done: string[] = [];
+      let keeper = page.keeper;
+      if (circleId) {
+        const circle = circleFor(circleId);
+        if (!circle) return noCircle(circleId);
+        if (!canMovePageTo(user, directory, page, circle.id))
+          return no(`Join ${circle.name} first: only its members can move pages to it`);
+        if (page.keeper !== circle.id) {
+          const result = await updatePage(page.slug, actor, { keeper: circle.id });
+          if (!result.ok) return no(wikiMessage(result.reason));
+          keeper = circle.id;
+          done.push(`to ${circle.name}`);
+        }
+      }
+      if (parentRef !== undefined) {
+        const top = !parentRef.trim() || parentRef.trim().toLowerCase() === "top";
+        const parent = top ? null : await findPage(parentRef, user);
+        if (!top && !parent) return noPage(parentRef);
+        if (parent && parent.keeper !== keeper)
+          return no("A page goes inside a page its own circle keeps");
+        const result = await movePage(page.slug, { parentId: parent?.id ?? null });
+        if (!result.ok) return no(wikiMessage(result.reason));
+        done.push(parent ? `inside “${parent.title}”` : "to the circle's top level");
+      }
+      if (!done.length) return yes(`“${page.title}” is already where you asked: ${pageUrl(page)}`);
+      return yes(`Moved “${page.title}” ${done.join(", ")}: ${pageUrl(page)}`);
     },
 
     async deletePage({ page: ref }) {
-      const page = await findPage(ref);
+      const page = await findPage(ref, user);
       if (!page) return noPage(ref);
       if (!canManagePage(user, directory, page))
         return no("Only the circle that keeps this page (or the Board) can change that");
