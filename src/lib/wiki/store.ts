@@ -7,7 +7,7 @@ import type { Actor } from "@/lib/auth/actor";
 import type { PageConsent, PageProposal } from "./consent";
 import { namedPeopleSchema, type NamedPerson } from "@/lib/people";
 import { differs } from "@/lib/proposals/mirror";
-import { canNest, childrenOf, descendantsOf, orderAfterLast } from "./tree";
+import { canNest, childrenOf, descendantsOf, orderAfterLast, orderBetween } from "./tree";
 
 /**
  * The wiki: one for all of CVC, every page seen by every resident. Each
@@ -62,6 +62,10 @@ export interface PageSource {
     urlId: string;
     url: string;
     collectionId: string;
+    /** The collection's short id in Outline's addresses (`/collection/<name>-<urlId>`). */
+    collectionUrlId?: string;
+    /** Its title in Outline (so a later rename there is noticed). */
+    title: string;
     importedAt: string;
   };
 }
@@ -302,13 +306,15 @@ async function mutate(
         pages: WikiPage[];
         page: WikiPage | null;
         archive?: { pageId: string; version: WikiVersion };
+        /** Anything else the caller wants back (the import's tally). */
+        outcome?: unknown;
       }
     | Failure
-): Promise<WikiResult> {
+): Promise<WikiResult & { outcome?: unknown }> {
   await readPages(); // brings the old wikis over first, if that hasn't happened yet
   let archive: { pageId: string; version: WikiVersion } | undefined;
   // Several people can be saving at once (on different servers): a conditional write, retried, keeps everyone's.
-  const result = await mutateJson<WikiResult>(KEY, (raw) => {
+  const result = await mutateJson<WikiResult & { outcome?: unknown }>(KEY, (raw) => {
     archive = undefined;
     const stored = normalize(raw) ?? { version: VERSION, pages: [] };
     const next = change(stored.pages);
@@ -316,7 +322,11 @@ async function mutate(
     archive = next.archive;
     return {
       value: { version: VERSION, pages: next.pages },
-      result: { ok: true, page: next.page },
+      result: {
+        ok: true,
+        page: next.page,
+        ...(next.outcome !== undefined ? { outcome: next.outcome } : {}),
+      },
     };
   });
   if (result.ok && archive) {
@@ -673,6 +683,182 @@ export async function setPageDecisions(
       return next ? { ...page, proposal: next.proposal, consent: next.consent } : page;
     }),
   }));
+}
+
+/** A page as the Outline import hands it over (`lib/outline/import.ts`). */
+export interface ImportedPageInput {
+  source: PageSource;
+  title: string;
+  body: string;
+  keeper: string;
+  /** The Outline id of the document it sits inside (in this batch, or imported before), null for the top level — or undefined to leave a page where it is. */
+  parentOutlineId: string | null | undefined;
+  /** Its place among its siblings in Outline, from 0 — or undefined to leave a page where it is. */
+  index: number | undefined;
+  icon: string | null;
+  createdAt: string;
+  createdBy: WikiAuthor;
+  updatedAt: string;
+  updatedBy: WikiAuthor;
+  template: boolean;
+}
+
+export interface ImportOutcome {
+  created: number;
+  updated: number;
+  unchanged: number;
+  /** Each Outline document's page id. */
+  pageIds: Record<string, string>;
+  /** Titles that had to change because another page had them. */
+  renamed: { outlineTitle: string; title: string }[];
+}
+
+/**
+ * Bring pages over from Outline, or bring them up to date: a page is found
+ * by the Outline document it came from (`source`), else made. Titles must be
+ * unique here (links are by title), so a clash gets a suffix; a page's
+ * own earlier suffix stays unless Outline renamed it. Each page sits where
+ * Outline's tree puts it (`parentOutlineId`, `index` → `order`), with
+ * Outline's dates and authors. Not versions: the import replaces the text.
+ */
+export function importPages(
+  entries: ImportedPageInput[]
+): Promise<{ ok: true; outcome: ImportOutcome } | { ok: false; reason: Failure }> {
+  return mutate((pages) => {
+    const byOutline = new Map(
+      pages
+        .filter((page) => page.source?.outline)
+        .map((page) => [page.source!.outline.documentId, page] as const)
+    );
+    if (
+      pages.length +
+        entries.filter((entry) => !byOutline.has(entry.source.outline.documentId)).length >
+      MAX_PAGES
+    )
+      return "full";
+    const titles = new Map(pages.map((page) => [page.title.toLowerCase(), page.id]));
+    const taken = new Set(
+      pages.flatMap((entry) => [entry.slug, ...(entry.aliases ?? []).map((alias) => alias.slug)])
+    );
+    const outcome: ImportOutcome = {
+      created: 0,
+      updated: 0,
+      unchanged: 0,
+      pageIds: {},
+      renamed: [],
+    };
+    const ids = new Map<string, string>(); // Outline document → page id (existing or new)
+    for (const entry of entries)
+      ids.set(
+        entry.source.outline.documentId,
+        byOutline.get(entry.source.outline.documentId)?.id ?? randomUUID()
+      );
+    const free = (title: string, pageId: string) => {
+      const owner = titles.get(title.toLowerCase());
+      return !owner || owner === pageId;
+    };
+    let next = pages;
+    const renamedLinks: { from: string; to: string }[] = [];
+    // Order keys by position: the same for the same position, run after run.
+    const keys: string[] = [];
+    const keyFor = (index: number) => {
+      while (keys.length <= index)
+        keys.push(keys.length ? orderBetween(keys[keys.length - 1]) : orderBetween());
+      return keys[index];
+    };
+    for (const entry of entries) {
+      const outlineId = entry.source.outline.documentId;
+      const id = ids.get(outlineId)!;
+      const existing = byOutline.get(outlineId);
+      // Its title: Outline's, unless another page has it (then a suffix); a page keeps its earlier suffix.
+      let title = entry.title;
+      if (existing && existing.source?.outline.title === entry.title && !free(title, id))
+        title = existing.title;
+      if (!free(title, id)) {
+        const circleName = entry.source.outline.collectionId;
+        for (const candidate of [
+          `${entry.title} (from the wiki)`,
+          ...Array.from({ length: 50 }, (_, n) => `${entry.title} (${n + 2})`),
+        ]) {
+          if (free(candidate, id)) {
+            title = candidate;
+            break;
+          }
+        }
+        void circleName;
+        if (!free(title, id)) return "exists";
+        outcome.renamed.push({ outlineTitle: entry.title, title });
+      }
+      titles.set(title.toLowerCase(), id);
+      const parentId =
+        entry.parentOutlineId === undefined
+          ? existing?.parentId ?? null
+          : entry.parentOutlineId
+            ? ids.get(entry.parentOutlineId) ?? byOutline.get(entry.parentOutlineId)?.id ?? null
+            : null;
+      const order = entry.index === undefined ? existing?.order ?? keyFor(0) : keyFor(entry.index);
+      if (existing) {
+        const updated: WikiPage = {
+          ...existing,
+          title,
+          body: entry.body,
+          keeper: entry.keeper,
+          parentId,
+          order,
+          icon: entry.icon,
+          updatedAt: entry.updatedAt,
+          updatedBy: entry.updatedBy,
+          source: entry.source,
+          ...(entry.template ? { template: true } : {}),
+        };
+        if (!entry.template) delete updated.template;
+        const changed =
+          existing.title !== title ||
+          existing.body !== entry.body ||
+          existing.keeper !== entry.keeper ||
+          (existing.parentId ?? null) !== parentId ||
+          existing.order !== order ||
+          (existing.icon ?? null) !== (entry.icon ?? null) ||
+          !!existing.template !== entry.template ||
+          existing.updatedAt !== entry.updatedAt;
+        if (changed) {
+          if (existing.title !== title) renamedLinks.push({ from: existing.title, to: title });
+          next = next.map((page) => (page.id === id ? updated : page));
+          outcome.updated++;
+        } else outcome.unchanged++;
+      } else {
+        const slug = slugFor(title, taken);
+        taken.add(slug);
+        const page: WikiPage = {
+          id,
+          slug,
+          title,
+          body: entry.body,
+          createdAt: entry.createdAt,
+          createdBy: entry.createdBy,
+          updatedAt: entry.updatedAt,
+          updatedBy: entry.updatedBy,
+          keeper: entry.keeper,
+          edit: DEFAULT_EDIT,
+          historyCount: 0,
+          parentId,
+          order,
+          ...(entry.icon ? { icon: entry.icon } : {}),
+          ...(entry.template ? { template: true } : {}),
+          source: entry.source,
+        };
+        next = [...next, page];
+        outcome.created++;
+      }
+      outcome.pageIds[outlineId] = id;
+    }
+    // Pages renamed here: the links to them follow.
+    for (const { from, to } of renamedLinks)
+      next = next.map((page) => ({ ...page, body: renameLinks(page.body, from, to) }));
+    return { pages: next, page: null, outcome };
+  }).then((result) =>
+    result.ok ? { ok: true, outcome: (result as { outcome?: ImportOutcome }).outcome! } : result
+  );
 }
 
 /** The pages inside `pageId`, at any depth (the branch that goes with it to the trash). */

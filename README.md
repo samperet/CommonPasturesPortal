@@ -167,6 +167,29 @@ back; signing out ends it. They're signed with `AUTH_SECRET`; when it's unset, p
 (never the public development default), and with neither it refuses to create sessions. Setting
 `AUTH_SECRET` explicitly is still recommended.
 
+## Importing an Outline wiki
+
+Admins can bring a whole [Outline](https://www.getoutline.com) wiki into CVC from **Admin
+settings → Import from Outline** (`/admin/outline`; `lib/outline`). Set `OUTLINE_URL` (the wiki's
+address) and `OUTLINE_API_TOKEN` (an Outline admin's API key) in Vercel first; CVC only reads from
+Outline. **See what's there** lists the collections, their document counts and the circle each
+becomes — one with the same name, or a new circle (made with the importing admin as its first
+member). **Run the import** then brings every published document over as a page of that circle,
+in Outline's order and nesting, with its emoji, dates and authors (matched to residents by email;
+others are credited under their Outline name), its images (kept as the circle's wiki images), its
+files (kept as the circle's documents and linked `[[doc:…]]`) and its comments (as the page's
+comments, threads kept). Outline's Markdown becomes CVC's (`lib/outline/markdown.ts`):
+`==highlights==` → `:mark`, `:::info|warning|tip` → callouts of that kind, mentions → resident
+mentions, links between documents → `[[Page]]` links (settled once every page exists), anything
+that would read as a CVC directive escaped. A title another page already has gets "(from the
+wiki)". Archived documents and other people's unpublished drafts stay behind. The import runs in
+batches and can be run again: a page is found by the document it came from (`source` on the
+page), so re-running updates pages (replacing their text, without a history entry) and never
+doubles them; images and files are fetched once (`outline/import.json` keeps the tally, the log,
+and what each attachment became). Old Outline addresses keep working once the wiki's domain
+points at CVC: `/doc/<title>-<urlId>` opens the page that document became, and
+`/collection/<name>-<urlId>` its circle.
+
 ## Admins
 
 Admins can do anything a resident can, on anyone's content. Sam Peret is built in

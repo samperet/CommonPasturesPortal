@@ -4,7 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bug, History, Mail, NotebookPen, ShieldCheck, UserMinus, UserPlus } from "lucide-react";
+import {
+  Bug,
+  Download,
+  History,
+  Mail,
+  NotebookPen,
+  ShieldCheck,
+  UserMinus,
+  UserPlus,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { usePeople } from "@/lib/auth/client";
 import type { AdminView } from "@/lib/auth/admin-http";
@@ -40,6 +49,7 @@ const OTHER_PAGES = [
   { href: "/admin/sign-ins", label: "Sign-in log", icon: History },
   { href: "/admin/feedback", label: "Bugs & requests", icon: Bug },
   { href: "/admin/email", label: "Email", icon: Mail },
+  { href: "/admin/outline", label: "Import from Outline", icon: Download },
   { href: "/secretary", label: "Secretary: new members", icon: NotebookPen },
 ];
 

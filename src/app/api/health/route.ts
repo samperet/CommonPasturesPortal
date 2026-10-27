@@ -34,7 +34,12 @@ export async function GET() {
     PROVIDERS.map((provider) => [provider, providerConfigured(provider)])
   );
   return NextResponse.json(
-    { storage: { configured, durable }, email },
+    {
+      storage: { configured, durable },
+      email,
+      // Which build is answering (Vercel's commit), for checking a deployment landed.
+      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    },
     { status: durable ? 200 : 503 }
   );
 }

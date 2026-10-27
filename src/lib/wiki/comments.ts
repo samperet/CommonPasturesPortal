@@ -122,6 +122,28 @@ export function addComment(
   );
 }
 
+/**
+ * Comments brought over from Outline (`lib/outline/import.ts`), with ids
+ * of their own (`outline:<id>`): any already there with the same id are
+ * replaced, the page's other comments kept. How many the page then has.
+ */
+export async function importComments(pageId: string, imported: WikiComment[]) {
+  const ids = new Set(imported.map((comment) => comment.id));
+  return mutateJson<number>(key(pageId), (raw) => {
+    const before = normalize(raw).filter((comment) => comment.pageId === pageId);
+    const kept = before.filter((comment) => !ids.has(comment.id));
+    const comments = [...kept, ...imported]
+      .slice(0, MAX_COMMENTS)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const same =
+      comments.length === before.length &&
+      comments.every((comment, index) => JSON.stringify(comment) === JSON.stringify(before[index]));
+    return same
+      ? { write: false, result: before.length }
+      : { value: { comments }, result: comments.length };
+  });
+}
+
 /** Change what you wrote (admins can change any). */
 export function editComment(pageId: string, commentId: string, actor: CommentActor, body: string) {
   return mutate(
