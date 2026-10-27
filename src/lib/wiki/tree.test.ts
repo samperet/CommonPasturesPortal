@@ -7,6 +7,7 @@ import {
   descendantsOf,
   orderAfterLast,
   orderBetween,
+  placeAfter,
   sortSiblings,
   type TreePage,
 } from "./tree";
@@ -105,5 +106,33 @@ describe("the page tree", () => {
     expect(orderBetween("r", "i") > "r").toBe(true);
     expect(orderAfterLast(childrenOf(pages, "mowing")) > "r").toBe(true);
     expect(orderAfterLast([])).toBe("i");
+  });
+
+  it("places a page after a sibling, renumbering only when the neighbours leave no room", () => {
+    const siblings = pages.filter(
+      (entry) => (entry.parentId ?? null) === null && entry.keeper === "lcc"
+    );
+    const moving = page("may", "May plan", "mowing", "i");
+    // Between two ordered neighbours: just the one new key.
+    const between = placeAfter(siblings, moving, "mowing");
+    expect(Array.from(between.keys())).toEqual(["may"]);
+    expect(between.get("may")! > "i" && between.get("may")! < "r").toBe(true);
+    // First: before everything.
+    expect(placeAfter(siblings, moving, null).get("may")! < "i").toBe(true);
+    // After a sibling that isn't there: last — the unordered ones have no keys, so every sibling gets one.
+    const last = placeAfter(siblings, moving, "nowhere");
+    expect(Array.from(last.keys())).toEqual(["mowing", "hedges", "archive", "notes", "may"]);
+    const keys = Array.from(last.values());
+    expect([...keys].sort()).toEqual(keys);
+    // After an unordered sibling: renumbered in the order shown, the page in its place.
+    const after = placeAfter(siblings, moving, "archive");
+    expect(Array.from(after.keys())).toEqual(["mowing", "hedges", "archive", "may", "notes"]);
+    // A page already among the siblings is placed afresh, not counted twice.
+    expect(Array.from(placeAfter(siblings, siblings[1], "mowing").keys())).toEqual([
+      "mowing",
+      "hedges",
+      "archive",
+      "notes",
+    ]);
   });
 });

@@ -8,6 +8,8 @@ import { NavigationTrail } from "@/components/layout/back-link";
 import { ToastProvider } from "@/components/ui/use-toast";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { sessionPayload } from "@/lib/auth/me";
+import { headers } from "next/headers";
+import { siteUrl } from "@/lib/site-url";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const fraunces = Fraunces({
@@ -41,13 +43,17 @@ export default async function RootLayout({
 }>) {
   // Who's signed in, sent with the page so the first paint has the right layout.
   const session = await sessionPayload().catch(() => undefined);
+  // On the wiki's own address (the middleware says so) the shell shows only the wiki.
+  const wikiHost = headers().get("x-cvc-wiki-host") === "1";
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="font-sans">
         <ReactQueryProvider session={session}>
           <ToastProvider>
             <ConfirmProvider>
-              <AppShell>{children}</AppShell>
+              <AppShell wikiHost={wikiHost} mainSite={siteUrl()}>
+                {children}
+              </AppShell>
               <NavigationTrail />
               <Toaster />
             </ConfirmProvider>

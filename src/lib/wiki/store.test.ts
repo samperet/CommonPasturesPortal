@@ -100,6 +100,27 @@ describe("pages in a tree", () => {
     });
   });
 
+  it("moves a page right after a sibling, or first, keeping the others in order", async () => {
+    const mowing = await made("Mowing");
+    const may = await made("May", { parentId: mowing.id });
+    const june = await made("June", { parentId: mowing.id });
+    const july = await made("July", { parentId: mowing.id });
+    const order = async () =>
+      (await store.readPages())
+        .filter((page) => page.parentId === mowing.id)
+        .sort((a, b) => (a.order! < b.order! ? -1 : 1))
+        .map((page) => page.title);
+    expect((await store.movePage(july.slug, { after: null })).ok).toBe(true);
+    expect(await order()).toEqual(["July", "May", "June"]);
+    expect((await store.movePage(may.slug, { after: june.id })).ok).toBe(true);
+    expect(await order()).toEqual(["July", "June", "May"]);
+    // Into another page, after one of its pages.
+    const hedges = await made("Hedges");
+    const moved = await store.movePage(hedges.slug, { parentId: mowing.id, after: july.id });
+    expect(moved.ok && moved.page?.parentId).toBe(mowing.id);
+    expect(await order()).toEqual(["July", "Hedges", "June", "May"]);
+  });
+
   it("takes the branch along when the keeper changes, lifting the page to the top", async () => {
     const mowing = await made("Mowing");
     const may = await made("May", { parentId: mowing.id });

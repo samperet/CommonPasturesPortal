@@ -70,7 +70,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       "Only the circle that keeps this page (or the Board) can change its settings",
       403
     );
-  const placing = update.parentId !== undefined || update.order !== undefined;
+  const placing =
+    update.parentId !== undefined || update.order !== undefined || update.after !== undefined;
   if (placing && !ctx.canManage)
     return problem("Only the circle that keeps this page (or the Board) can move it", 403);
   if (update.consent !== undefined && !ctx.canConsent)
@@ -101,7 +102,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
   if (!result.ok) return wikiProblem(result.reason);
   if (placing) {
-    const moved = await movePage(params.slug, { parentId: update.parentId, order: update.order });
+    const moved = await movePage(params.slug, {
+      parentId: update.parentId,
+      order: update.order,
+      after: update.after,
+    });
     if (!moved.ok) return wikiProblem(moved.reason);
     if (result.page && moved.page)
       result.page = { ...result.page, parentId: moved.page.parentId, order: moved.page.order };

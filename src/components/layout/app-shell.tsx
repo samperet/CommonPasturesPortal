@@ -17,6 +17,7 @@ import {
   Camera,
   Lightbulb,
   Eye,
+  ExternalLink,
 } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -39,6 +40,7 @@ import { setUpPwa } from "@/components/notifications/pwa";
 import { SectionArt, hasSectionArt } from "@/components/layout/section-art";
 import { InstallHelp } from "@/components/layout/install-help";
 import { Loading } from "@/components/ui/status";
+import { Pill } from "@/components/ui/pill";
 
 const links = [
   { href: "/", label: "Dashboard", icon: Grid },
@@ -89,7 +91,24 @@ const isActive = (pathname: string, href: string) =>
   // Written pages are documents too.
   (href === "/documents" && pathname.startsWith("/wiki/"));
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+/**
+ * The app around every page: the header (sections, search, messages, your
+ * account), the phone menu, and the footer. On the wiki's own address
+ * (`wikiHost`, decided by the middleware) it shows only the wiki — the
+ * logo, search and your account, with a link to the full site at
+ * `mainSite`. Documents and pages get a wider column, for the sidebar.
+ */
+export function AppShell({
+  children,
+  wikiHost = false,
+  mainSite = "/",
+}: {
+  children: React.ReactNode;
+  /** Reached on the wiki's own address: documents only. */
+  wikiHost?: boolean;
+  /** The app's main address, for the way back from the wiki's. */
+  mainSite?: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, viewAs, isLoading } = useSession();
@@ -115,6 +134,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onPublicHome = pathname === "/" || onWelcome;
   // A new member's welcome form (from their emailed link): the same plain page for anyone.
   const onJoin = pathname.startsWith("/join/");
+  // Documents and pages have the sidebar beside them, so their column is wider.
+  const wide = pathname.startsWith("/documents") || pathname.startsWith("/wiki/");
+  const width = wide ? "max-w-[90rem]" : "max-w-6xl";
 
   // Register the service worker (installable app, notifications) and catch the install prompt.
   useEffect(() => setUpPwa(), []);
@@ -131,7 +153,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         !event.metaKey &&
         !event.ctrlKey &&
         !event.altKey;
-      const commandK = event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey);
+      // In the editor, ⌘K is its link box, not the search.
+      const commandK =
+        event.key.toLowerCase() === "k" &&
+        (event.metaKey || event.ctrlKey) &&
+        !target?.isContentEditable;
       if (slash || commandK) {
         event.preventDefault();
         opener.current = document.activeElement as HTMLElement | null;
@@ -182,7 +208,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {viewAs ? (
             // An admin viewing the app as a resident: always visible, with the way out.
             <div className="bg-sun text-foreground" role="status">
-              <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1.5 text-sm md:px-6">
+              <div
+                className={cn(
+                  "mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1.5 text-sm md:px-6",
+                  width
+                )}
+              >
                 <span className="flex items-center gap-1.5">
                   <Eye className="h-4 w-4 shrink-0" />
                   <span>
@@ -200,73 +231,99 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ) : null}
-          <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+          <div
+            className={cn(
+              "relative mx-auto flex items-center justify-between gap-4 px-4 py-3 md:px-6",
+              width
+            )}
+          >
             <Link
-              href="/"
+              href={wikiHost ? "/documents" : "/"}
               className="flex shrink-0 items-center gap-2 whitespace-nowrap font-display text-xl font-semibold text-foreground"
-              aria-label="Common Pastures"
+              aria-label={wikiHost ? "Common Pastures wiki" : "Common Pastures"}
             >
               <Image src="/CVC.png" alt="" width={32} height={32} priority className="h-8 w-8" />
               {/* On phones the logo alone, leaving room for the account button's name. */}
               <span className="hidden sm:inline">Common Pastures</span>
+              {wikiHost ? (
+                <Pill tone="pine" size="xs" className="font-sans" data-wiki-host>
+                  Wiki
+                </Pill>
+              ) : null}
             </Link>
             <div className="flex min-w-0 items-center gap-2 xl:hidden">
               <SearchButton active={pathname === "/search"} open={searching} onOpen={openSearch} />
-              {viewAs ? null : <MessagesButton active={pathname.startsWith("/messages")} />}
+              {viewAs || wikiHost ? null : (
+                <MessagesButton active={pathname.startsWith("/messages")} />
+              )}
               <UserMenu />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setMenuOpen((open) => !open)}
-                aria-label="Toggle navigation"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
+              {wikiHost ? null : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-label="Toggle navigation"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <div className="hidden items-center gap-2 xl:flex">
-              <nav className="flex gap-0.5">
-                {/* The logo leads to the dashboard, so the desktop bar leaves it out to fit every section. */}
-                {links
-                  .filter((link) => link.href !== "/")
-                  .map((link) =>
-                    link.href === "/documents" || link.href === "/circles" ? (
-                      <NavMenu
-                        key={link.href}
-                        href={link.href}
-                        label={link.label}
-                        active={isActive(pathname, link.href)}
-                      >
-                        {(close) =>
-                          link.href === "/documents" ? (
-                            <DocumentsMenuItems close={close} />
-                          ) : (
-                            <CirclesMenuItems close={close} />
-                          )
-                        }
-                      </NavMenu>
-                    ) : (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        aria-current={isActive(pathname, link.href) ? "page" : undefined}
-                        className={cn(
-                          "whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition",
-                          isActive(pathname, link.href)
-                            ? "bg-primary text-primary-foreground shadow-soft"
-                            : "text-foreground/70 hover:bg-accent hover:text-foreground"
-                        )}
-                      >
-                        {link.label}
-                      </Link>
-                    )
-                  )}
-              </nav>
+              {wikiHost ? (
+                <a
+                  href={mainSite}
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-foreground/70 transition hover:bg-accent hover:text-foreground"
+                  data-full-site
+                >
+                  Full site <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                </a>
+              ) : (
+                <nav className="flex gap-0.5">
+                  {/* The logo leads to the dashboard, so the desktop bar leaves it out to fit every section. */}
+                  {links
+                    .filter((link) => link.href !== "/")
+                    .map((link) =>
+                      link.href === "/documents" || link.href === "/circles" ? (
+                        <NavMenu
+                          key={link.href}
+                          href={link.href}
+                          label={link.label}
+                          active={isActive(pathname, link.href)}
+                        >
+                          {(close) =>
+                            link.href === "/documents" ? (
+                              <DocumentsMenuItems close={close} />
+                            ) : (
+                              <CirclesMenuItems close={close} />
+                            )
+                          }
+                        </NavMenu>
+                      ) : (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          aria-current={isActive(pathname, link.href) ? "page" : undefined}
+                          className={cn(
+                            "whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition",
+                            isActive(pathname, link.href)
+                              ? "bg-primary text-primary-foreground shadow-soft"
+                              : "text-foreground/70 hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          {link.label}
+                        </Link>
+                      )
+                    )}
+                </nav>
+              )}
               <SearchButton active={pathname === "/search"} open={searching} onOpen={openSearch} />
-              {viewAs ? null : <MessagesButton active={pathname.startsWith("/messages")} />}
+              {viewAs || wikiHost ? null : (
+                <MessagesButton active={pathname.startsWith("/messages")} />
+              )}
               <UserMenu />
             </div>
           </div>
-          {menuOpen ? (
+          {menuOpen && !wikiHost ? (
             <div className="border-t border-border bg-background px-4 pb-4 pt-2 xl:hidden">
               <nav className="flex flex-col gap-2">
                 {links.map((link) => {
@@ -314,10 +371,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
         </header>
-        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6 print:block print:max-w-none print:p-0">
+        <main
+          className={cn(
+            "mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-6 md:px-6 print:block print:max-w-none print:p-0",
+            width
+          )}
+        >
           {children}
         </main>
-        <AppreciationsFooter />
+        {wikiHost ? null : <AppreciationsFooter />}
         <LadybugButton />
         <PresenceHeartbeat />
         {searching && user ? <SearchPalette onClose={closeSearch} /> : null}

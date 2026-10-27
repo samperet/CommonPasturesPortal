@@ -141,3 +141,35 @@ export const orderAfterLast = (siblings: TreePage[]) => {
   const last = ordered.length ? ordered[ordered.length - 1].order : undefined;
   return orderBetween(last, undefined);
 };
+
+/**
+ * The order keys that put `page` right after `after` among `siblings` (null:
+ * first; a sibling that isn't there: last), as a map of page id → key. When
+ * both neighbours have keys with room between them, only the page's key is
+ * new; otherwise (a sibling never moved has no key yet) every sibling is
+ * given a key in its present order, so the drop lands exactly where it was
+ * aimed. All the pages live in one document, so renumbering costs nothing.
+ */
+export function placeAfter<T extends TreePage>(
+  siblings: T[],
+  page: TreePage,
+  after: string | null
+): Map<string, string> {
+  const others = sortSiblings(siblings.filter((entry) => entry.id !== page.id));
+  const at = after === null ? 0 : others.findIndex((entry) => entry.id === after) + 1;
+  const index = after !== null && at === 0 ? others.length : at;
+  const before = others[index - 1];
+  const next = others[index];
+  const room =
+    (!before || !!before.order) &&
+    (!next || !!next.order) &&
+    (!before || !next || before.order! < next.order!);
+  if (room) return new Map([[page.id, orderBetween(before?.order, next?.order)]]);
+  const keys = new Map<string, string>();
+  let last: string | undefined;
+  for (const entry of [...others.slice(0, index), page, ...others.slice(index)]) {
+    last = orderBetween(last, undefined);
+    keys.set(entry.id, last);
+  }
+  return keys;
+}

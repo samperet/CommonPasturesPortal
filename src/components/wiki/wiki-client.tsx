@@ -21,13 +21,15 @@ export function useWikiPages() {
 
 /**
  * Start a page: give it a title, then write it. Started from a link in
- * another page (`from`), it's kept by that page's circle; otherwise choose
- * which of your circles keeps it (unless `lockKeeper`: from a circle's page,
- * that circle keeps it).
+ * another page (`from`), it's kept by that page's circle; inside another
+ * page (`parent`), by that page's circle, under it in the tree; otherwise
+ * choose which of your circles keeps it (unless `lockKeeper`: from a
+ * circle's page, that circle keeps it).
  */
 export function NewPageForm({
   initialTitle = "",
   from,
+  parent,
   keeper: preferred,
   lockKeeper = false,
   meeting = false,
@@ -35,6 +37,8 @@ export function NewPageForm({
 }: {
   initialTitle?: string;
   from?: string;
+  /** The page it goes inside. */
+  parent?: { id: string; title: string; keeper: string };
   keeper?: string;
   lockKeeper?: boolean;
   /** Notes for a meeting: its day is asked for, and the title starts as the circle's and the day's. */
@@ -46,9 +50,10 @@ export function NewPageForm({
   const queryClient = useQueryClient();
   const keepers = useWikiPages().data?.keepers ?? [];
   const [title, setTitle] = useState(initialTitle);
-  const [chosen, setChosen] = useState(preferred ?? "");
+  const [chosen, setChosen] = useState(parent?.keeper ?? preferred ?? "");
   // A circle asked for (say, the list's filter) only if it's one you can start pages for.
-  const usable = lockKeeper || keepers.some((circle) => circle.id === chosen) ? chosen : "";
+  const usable =
+    lockKeeper || parent || keepers.some((circle) => circle.id === chosen) ? chosen : "";
   const keeper =
     usable ||
     (keepers.some((circle) => isCommunity(circle.id)) ? COMMUNITY_ID : keepers[0]?.id) ||
@@ -71,7 +76,7 @@ export function NewPageForm({
         body: JSON.stringify({
           title: shownTitle,
           body: "",
-          ...(from && !chosen ? { from } : { keeper }),
+          ...(parent ? { parentId: parent.id } : from && !chosen ? { from } : { keeper }),
           ...(meeting ? { meetingDate } : {}),
           ...(template ? { template } : {}),
         }),
@@ -119,7 +124,13 @@ export function NewPageForm({
         className="bg-white"
         aria-label="Page title"
       />
-      {!from && !lockKeeper && keepers.length > 1 ? (
+      {parent ? (
+        <p className="text-sm text-muted">
+          Inside <span className="font-medium text-foreground">{parent.title}</span>
+          {keeperName ? ` · ${keeperName}` : ""}
+        </p>
+      ) : null}
+      {!from && !parent && !lockKeeper && keepers.length > 1 ? (
         <label className="flex flex-wrap items-center gap-2 text-sm text-muted">
           Parent circle
           <Select
@@ -139,7 +150,7 @@ export function NewPageForm({
       <div className="flex gap-2">
         <Button
           type="submit"
-          disabled={!shownTitle.trim() || create.isPending || (!from && !keeper)}
+          disabled={!shownTitle.trim() || create.isPending || (!from && !parent && !keeper)}
         >
           {create.isPending ? "Adding…" : meeting ? "Start the notes" : "Add page"}
         </Button>

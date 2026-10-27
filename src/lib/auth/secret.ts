@@ -15,7 +15,12 @@ export const SESSION_TTL_MS = 400 * 24 * 60 * 60 * 1000;
 /** A session is renewed on a visit once it's this old. */
 export const SESSION_RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
 
-/** The session cookie's attributes (the sign-in routes and the middleware set it alike). */
+/**
+ * The session cookie's attributes (the sign-in routes and the middleware set
+ * it alike). With `SESSION_COOKIE_DOMAIN` (say `.commonpastures.org`) the
+ * cookie is shared by every host under it, so one sign-in serves the app
+ * and the wiki's own address (`WIKI_HOST`) alike.
+ */
 export function sessionCookieAttributes() {
   return {
     httpOnly: true,
@@ -23,6 +28,7 @@ export function sessionCookieAttributes() {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    ...(process.env.SESSION_COOKIE_DOMAIN ? { domain: process.env.SESSION_COOKIE_DOMAIN } : {}),
   };
 }
 

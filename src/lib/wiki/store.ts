@@ -7,7 +7,14 @@ import type { Actor } from "@/lib/auth/actor";
 import type { PageConsent, PageProposal } from "./consent";
 import { namedPeopleSchema, type NamedPerson } from "@/lib/people";
 import { differs } from "@/lib/proposals/mirror";
-import { canNest, childrenOf, descendantsOf, orderAfterLast, orderBetween } from "./tree";
+import {
+  canNest,
+  childrenOf,
+  descendantsOf,
+  orderAfterLast,
+  orderBetween,
+  placeAfter,
+} from "./tree";
 
 /**
  * The wiki: one for all of CVC, every page seen by every resident. Each
@@ -213,6 +220,8 @@ export const pageUpdateSchema = z
     /** Where it sits: inside this page (null: the circle's top level), at this place among its siblings. */
     parentId: z.string().max(80).nullable().optional(),
     order: orderSchema.optional(),
+    /** Or: right after this sibling (null: first). */
+    after: z.string().max(80).nullable().optional(),
   })
   .refine(
     (value) => Object.values(value).some((entry) => entry !== undefined),
@@ -413,10 +422,15 @@ export function createPage(
 
 /**
  * Put a page somewhere else in its circle's tree: inside `parentId` (null:
- * the top level), at `order` among its siblings (unset: last). Never inside
- * itself or one of its own pages, and only inside a page its circle keeps.
+ * the top level), at `order` among its siblings — or right `after` one of
+ * them (null: first), its siblings renumbered if they need to be
+ * (`placeAfter`) — or, with neither, last. Never inside itself or one of its
+ * own pages, and only inside a page its circle keeps.
  */
-export function movePage(slug: string, move: { parentId?: string | null; order?: string }) {
+export function movePage(
+  slug: string,
+  move: { parentId?: string | null; order?: string; after?: string | null }
+) {
   return mutate((pages) => {
     const page = pages.find((entry) => entry.slug === slug);
     if (!page) return "not_found";
@@ -426,6 +440,20 @@ export function movePage(slug: string, move: { parentId?: string | null; order?:
     const siblings = childrenOf(pages, parentId, page.keeper).filter(
       (entry) => entry.id !== page.id
     );
+    if (move.after !== undefined) {
+      const keys = placeAfter(siblings, page, move.after);
+      const moved: WikiPage = { ...page, parentId, order: keys.get(page.id) };
+      return {
+        pages: pages.map((entry) =>
+          entry.id === page.id
+            ? moved
+            : keys.has(entry.id)
+              ? { ...entry, order: keys.get(entry.id) }
+              : entry
+        ),
+        page: moved,
+      };
+    }
     const moved: WikiPage = {
       ...page,
       parentId,

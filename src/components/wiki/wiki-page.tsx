@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackLink } from "@/components/layout/back-link";
 import {
+  BookOpen,
+  ChevronRight,
   CornerDownRight,
   History as HistoryIcon,
   ListTree,
   MessageSquarePlus,
   Pencil,
+  Plus,
   RotateCcw,
   Trash2,
   X,
@@ -55,6 +58,8 @@ import { useConfirm } from "@/components/ui/confirm";
 import { Select } from "@/components/ui/select";
 import { StarButton, useNoteOpened } from "@/components/documents/my-documents";
 import { FollowButton } from "@/components/wiki/follow-button";
+import { useDocsShell } from "@/components/documents/docs-context";
+import { ancestorsOf, childrenOf } from "@/lib/wiki/tree";
 
 const NO_THREADS: never[] = [];
 const NO_IDS = new Set<string>();
@@ -136,7 +141,10 @@ function useActiveHeading(ids: string[], enabled: boolean) {
  * One wiki page: read it (with "On this page" for longer pages, the section
  * you're in shown in bold), select words to leave a comment on them, look
  * back through its versions, star it (opening it notes it as recent), follow
- * it, and — for its editors — edit, restore a version, or delete it.
+ * it, and — for its editors — edit, restore a version, or delete it. Its
+ * place in its circle's tree shows as a trail over the title (circle ›
+ * parent › … ) and, at the end, the pages inside it. While reading, `e`
+ * edits (if you may) and `s` stars.
  */
 export function WikiPageClient({ slug }: { slug: string }) {
   const confirm = useConfirm();
@@ -169,6 +177,39 @@ export function WikiPageClient({ slug }: { slug: string }) {
   const canConsent = !!data?.canConsent;
   const history = data?.history ?? [];
   const reading = mode !== "edit";
+  // Its place in the tree: the pages it's inside, and the pages inside it.
+  const ancestors = useMemo(() => (page ? ancestorsOf(pages, page) : []), [pages, page]);
+  const inside = useMemo(
+    () => (page ? childrenOf(pages, page.id, page.keeper).filter((entry) => !entry.draft) : []),
+    [pages, page]
+  );
+  const shell = useDocsShell();
+  // While reading: e edits (if you may), s stars — unless you're typing or a dialog is open.
+  useEffect(() => {
+    if (!reading) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        !target ||
+        target.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        document.querySelector("[role=dialog]")
+      )
+        return;
+      if (event.key === "e" && canEdit) {
+        event.preventDefault();
+        setMode("edit");
+      } else if (event.key === "s") {
+        event.preventDefault();
+        document.querySelector<HTMLButtonElement>("[data-star]")?.click();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reading, canEdit]);
   const { ranges, found: foundIds } = useQuoteHighlights(
     article,
     reading ? threads : NO_THREADS,
@@ -577,7 +618,10 @@ export function WikiPageClient({ slug }: { slug: string }) {
             <h1 className="font-display text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
               {page.title}
             </h1>
-            <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-muted">
+            <p
+              className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-muted"
+              data-page-trail
+            >
               {circle ? (
                 <Link href={`/circles/${circle.id}`} className="font-medium hover:underline">
                   {circle.name}
@@ -585,6 +629,18 @@ export function WikiPageClient({ slug }: { slug: string }) {
               ) : (
                 "—"
               )}
+              {ancestors.map((ancestor) => (
+                <Fragment key={ancestor.id}>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <Link
+                    href={`/wiki/${ancestor.slug}`}
+                    className="max-w-[14rem] truncate font-medium hover:underline"
+                  >
+                    {ancestor.icon ? `${ancestor.icon} ` : ""}
+                    {ancestor.title}
+                  </Link>
+                </Fragment>
+              ))}
               <span aria-hidden>·</span>
               <time
                 dateTime={page.updatedAt}
@@ -655,6 +711,49 @@ export function WikiPageClient({ slug }: { slug: string }) {
               </ProposalHostContext.Provider>
             </div>
           </div>
+          {inside.length || (canManage && shell) ? (
+            <section
+              className="mx-auto w-full max-w-[46rem] px-5 pb-8 sm:px-14"
+              aria-label="Pages inside"
+              data-page-children
+            >
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+                <ListTree className="h-3.5 w-3.5" aria-hidden /> Pages inside
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {inside.map((child) => (
+                  <li key={child.id}>
+                    <Link
+                      href={`/wiki/${child.slug}`}
+                      className="inline-flex items-center gap-2 rounded-md py-1 text-foreground-light hover:text-foreground hover:underline"
+                    >
+                      <span className="w-5 text-center text-base leading-none" aria-hidden>
+                        {child.icon ?? <BookOpen className="mx-auto h-4 w-4 text-primary" />}
+                      </span>
+                      {child.title}
+                    </Link>
+                  </li>
+                ))}
+                {canManage && shell ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        shell.newPage({ id: page.id, title: page.title, keeper: page.keeper })
+                      }
+                      className="inline-flex items-center gap-2 rounded-md py-1 text-sm text-muted hover:text-foreground hover:underline"
+                      data-page-add-inside
+                    >
+                      <span className="flex w-5 justify-center" aria-hidden>
+                        <Plus className="h-4 w-4" />
+                      </span>
+                      New page inside
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+            </section>
+          ) : null}
           <PageTranscript transcript={page.transcript} />
 
           {canManage ? (

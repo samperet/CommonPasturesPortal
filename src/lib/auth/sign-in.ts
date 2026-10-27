@@ -45,9 +45,10 @@ export function sendSignInEmail(
   person: { displayName: string },
   to: string,
   token: string,
-  code: string
+  code: string,
+  /** Where the link leads: the site, or the wiki's own address when asked for there. */
+  site: string = siteUrl()
 ) {
-  const site = siteUrl();
   const link = `${site}/login/${token}`;
   const hours = LINK_TTL_MS / 3_600_000;
   const lifetime = hours === 24 ? "a day" : hours >= 1 ? `${hours} hours` : `${hours * 60} minutes`;

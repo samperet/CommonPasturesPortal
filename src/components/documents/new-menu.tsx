@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -46,6 +46,16 @@ export function NewMenu({
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  // Kept on screen: nudged right when its left edge would leave the window (a phone), left when its right edge would.
+  useLayoutEffect(() => {
+    const element = menu.current;
+    if (!open || !element) return;
+    element.style.transform = "";
+    const rect = element.getBoundingClientRect();
+    const shift = Math.max(0, 8 - rect.left) - Math.max(0, rect.right - (window.innerWidth - 8));
+    if (shift) element.style.transform = `translateX(${shift}px)`;
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent | KeyboardEvent) => {
@@ -80,6 +90,7 @@ export function NewMenu({
       </Button>
       {open ? (
         <div
+          ref={menu}
           role="menu"
           aria-label="New"
           className="absolute right-0 z-30 mt-1.5 w-64 rounded-lg border border-border bg-white p-1 shadow-elev"
@@ -188,6 +199,7 @@ export function NewMenu({
 export function WritePageDialog({
   initialTitle,
   from,
+  parent,
   circleId,
   preferredCircle,
   meeting = false,
@@ -195,6 +207,8 @@ export function WritePageDialog({
 }: {
   initialTitle?: string;
   from?: string;
+  /** The page it goes inside (its circle keeps it). */
+  parent?: { id: string; title: string; keeper: string };
   /** From a circle's page: that circle keeps it. */
   circleId?: string;
   /** The circle chosen at first (the list's circle filter), which can be changed. */
@@ -223,6 +237,7 @@ export function WritePageDialog({
       <NewPageForm
         initialTitle={initialTitle}
         from={from}
+        parent={parent}
         keeper={circleId ?? (preferredCircle || undefined)}
         lockKeeper={!!circleId}
         meeting={meeting}

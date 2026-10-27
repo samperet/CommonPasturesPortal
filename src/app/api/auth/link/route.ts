@@ -3,6 +3,7 @@ import { createSignInLink } from "@/lib/auth/sign-in-links";
 import { findSignInPerson, maskEmail, sendSignInEmail, signInEmailOf } from "@/lib/auth/sign-in";
 import { linkRequestSchema } from "@/lib/auth/validation";
 import { problem, readBody, throttled } from "@/lib/http";
+import { requestSite } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
       429,
       "Too Many Requests"
     );
-  const sending = await sendSignInEmail(person, email, link.token, link.code);
+  // Asked for on the wiki's own address, the link leads back there.
+  const sending = await sendSignInEmail(person, email, link.token, link.code, requestSite(request));
   if (!sending.sent) {
     // Which senders refused, by status only (the admin's email log has their reasons).
     const codes = Object.entries(sending.errors)

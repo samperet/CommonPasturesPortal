@@ -7,6 +7,7 @@ import {
   authSecret,
   sessionCookieAttributes,
 } from "@/lib/auth/secret";
+import { isWikiHost } from "@/lib/site-url";
 
 /**
  * Signed-out visitors see only the sign-in page. Every other page redirects
@@ -20,7 +21,12 @@ import {
  * Each visit renews the session (once it's a day old) for another 400 days,
  * so residents stay signed in as long as they keep coming back — except on
  * the sign-in and sign-out routes, which set the cookie themselves.
+ *
+ * On the wiki's own address (`WIKI_HOST`), the front door is the documents,
+ * and every page is told it's there (the `x-cvc-wiki-host` request header),
+ * so the shell shows only the wiki.
  */
+const WIKI_HOST_HEADER = "x-cvc-wiki-host";
 
 /** Requests allowed to change things while viewing as someone: ending the view, and signing out. */
 const VIEW_AS_WRITABLE = new Set(["/api/auth/view-as", "/api/auth/logout"]);
@@ -95,9 +101,13 @@ async function validSession(value: string | undefined): Promise<Session | null> 
     : null;
 }
 
-/** On to the page or route — with the session renewed, if it's a day old and this may. */
+/** On to the page or route, told when it's on the wiki's address — with the session renewed, if it's a day old and this may. */
 async function onward(request: NextRequest, session: Session | null) {
-  const response = NextResponse.next();
+  const headers = new Headers(request.headers);
+  // Set here, from the Host header alone: never taken from the request.
+  if (isWikiHost(request.headers)) headers.set(WIKI_HOST_HEADER, "1");
+  else headers.delete(WIKI_HOST_HEADER);
+  const response = NextResponse.next({ request: { headers } });
   const { pathname } = request.nextUrl;
   const settingItself = pathname.startsWith("/api/auth/") || pathname.startsWith("/login");
   if (
@@ -120,6 +130,9 @@ export async function middleware(request: NextRequest) {
   // The AI assistants page, typed in capitals (/MCP): the page is at /mcp.
   if (pathname !== "/mcp" && pathname.toLowerCase() === "/mcp")
     return NextResponse.redirect(new URL(`/mcp${search}`, request.url), 308);
+  // The wiki's own address opens on the documents.
+  if (pathname === "/" && isWikiHost(request.headers))
+    return NextResponse.redirect(new URL("/documents", request.url));
   const session = await validSession(request.cookies.get(SESSION_COOKIE)?.value);
   if (PUBLIC_PATHS.has(pathname)) return onward(request, session);
   // A sign-in link, and the page it opens (the token is the key; using it takes a POST).

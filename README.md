@@ -57,6 +57,10 @@ Email (optional; see App & Notifications):
 - `EMAIL_FROM` – Sender, default `Common Pastures <notifications@commonpasturesvt.org>` (the
   domain must be verified in both Brevo and Resend).
 - `SITE_URL` – The app's address for links in emails (default: Vercel's production domain).
+- `WIKI_HOST` – A second address for the wiki alone (`wiki.commonpastures.org`), pointed at this
+  app: documents only there, with a link back to the full site (see *The wiki on an address of its
+  own*). `SESSION_COOKIE_DOMAIN` (`.commonpastures.org`) shares the session cookie across every host
+  under one domain, once both addresses sit under it.
 - `BREVO_DAILY_LIMIT` / `BREVO_MONTHLY_LIMIT` – Brevo's allowance (default 300 a day, 9,000 a
   month); `EMAIL_DAILY_LIMIT` / `EMAIL_MONTHLY_LIMIT` – Resend's (default: its free 100 a day,
   3,000 a month).
@@ -189,6 +193,22 @@ doubles them; images and files are fetched once (`outline/import.json` keeps the
 and what each attachment became). Old Outline addresses keep working once the wiki's domain
 points at CVC: `/doc/<title>-<urlId>` opens the page that document became, and
 `/collection/<name>-<urlId>` its circle.
+
+## The wiki on an address of its own
+
+The app can also answer on a second address that shows only the wiki — `wiki.commonpastures.org`,
+say — so the documents have a home of their own, as the Outline server had. Set `WIKI_HOST` to that
+host name, add the domain to the Vercel project and point its DNS at Vercel. On that address the
+front door is Documents (`/` redirects there); the header shows the logo with a **Wiki** label,
+search, and your account, with a **Full site** link to the app's own address (`SITE_URL`), and no
+section links or footer; the sidebar and every page work as they do on the main address, and so
+does every other page, if typed. A sign-in link asked for there leads back there
+(`requestSite()` in `lib/site-url.ts`; only the configured host is trusted, never an arbitrary
+Host header). Sessions are cookies, which browsers keep per host: while the app and the wiki are
+on different domains (as `cvc-directory.vercel.app` and `wiki.commonpastures.org` are) a resident
+signs in on each once; once both sit under one domain, set `SESSION_COOKIE_DOMAIN` to it
+(`.commonpastures.org`) and one sign-in serves both. The middleware decides from the Host header
+(`isWikiHost`) and tells the shell with the `x-cvc-wiki-host` request header.
 
 ## Admins
 
@@ -506,6 +526,23 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   noted or starred while viewing the app as someone (`GET /api/me/documents`,
   `PUT /api/me/documents/starred`, `POST /api/me/documents/recent`). The lists go when someone
   leaves the directory.
+- **The sidebar and the page tree** – beside Documents and every page, a sidebar (as in Outline)
+  lists your **Starred** and **Recent** documents, your **Drafts**, and every circle that has pages,
+  each folding out to its tree: pages inside pages (`parentId`), in their order, the page you're
+  reading marked with its parents unfolded. On a wide screen it stays in view and **[** hides it,
+  **]** brings it back (remembered in the browser); on a phone a **Pages** button slides it in.
+  Over a page's title a trail reads circle › parent › …, and at the end of the page **Pages
+  inside** lists the pages under it. For the circles whose pages you keep (the Board and admins,
+  every circle's), a row's **+** starts a page inside it (the Write-a-page dialog, with the parent
+  shown; `POST /api/wiki/pages` with `parentId`), **Move to…** chooses which page it goes inside
+  and after which of that page's pages, and a row can be dragged: onto another's top or bottom
+  edge to go before or after it, onto its middle to go inside it, onto the circle's name to go to
+  its top level. A move is one `PATCH /api/wiki/pages/<slug>` with `{parentId, after}` (`after`: a
+  sibling's id, null for first); the store (`movePage`, `placeAfter` in `lib/wiki/tree.ts`) gives
+  the page an order key between its neighbours', renumbering the siblings only when a page never
+  moved before has none yet. Past fifty siblings, **Show more**. Keyboard, while reading a page:
+  **e** edits (if you may), **s** stars, **n** starts a page; **⌘K** opens the search except in the
+  editor, where it's the link box.
 - **Spreadsheets** – an Excel (`.xlsx`) or CSV file opens in CVC: **Open spreadsheet** among its
   row's actions, or its title (`/documents/<id>/sheet`). It's a spreadsheet editor (FortuneSheet):
   formulas, formatting, several sheets, a phone too. **Save** makes a new version of the same file
