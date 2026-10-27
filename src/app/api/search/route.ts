@@ -20,6 +20,7 @@ const KINDS: SearchKind[] = [
   "tasks",
   "resources",
   "library",
+  "cars",
 ];
 
 /** Search the whole site (`q`); `kind` narrows to one kind of result and lists more of them. Residents only. */

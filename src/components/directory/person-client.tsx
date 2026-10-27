@@ -1,5 +1,7 @@
 "use client";
 
+import { PersonCars } from "@/components/directory/cars";
+
 import { sentence } from "@/lib/text";
 
 import Link from "next/link";
@@ -195,6 +197,8 @@ export function PersonClient({ personId: requested }: { personId: string }) {
             <p className="text-muted">No contact details yet.</p>
           ) : null}
         </div>
+
+        <PersonCars person={person} />
 
         {memberships.length ? (
           <div className="flex flex-col gap-2">

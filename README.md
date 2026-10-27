@@ -435,6 +435,22 @@ Authors always come from the signed-in session, never from the request body.
   item), and served to signed-in residents (`/api/loan-items/<id>/photo`).
 - **Phones** – form fields are 16px on small screens, so iPhones don't zoom in when one is tapped.
 
+## Cars
+
+The Directory's **Cars** tab (`/directory?tab=cars`; `lib/cars`, `components/directory/cars.tsx`)
+lists every car registered at CVC, by unit — plate, make, model, colour, year, whose it is — and
+searches by any of those, so a neighbour can tell whose car is in the lane. Residents **Register
+a car** for their own unit (every unit they're listed in), naming the resident it's registered to
+(one of the unit's) or anyone else by name, and change or remove their unit's cars; the Board
+Secretary and admins any car. A plate is registered once. Site search finds a car by its plate
+(with or without its spaces), its description or its owner, and opens the Cars tab searched for
+it. A person's page lists their unit's cars. The Secretary and admins can **Import from a
+spreadsheet**: paste the sheet's rows with their header row (tab- or comma-separated); columns
+are read by their names (unit, owner, make, model, colour, year, plate, state, notes), owners
+matched to residents by name, a plate already registered updated rather than doubled
+(`POST /api/cars/import`; `GET`/`POST /api/cars`, `PATCH`/`DELETE /api/cars/<id>`; stored in
+`cars/cars.json`).
+
 ## Storage
 
 JSON documents are stored in Cloudflare R2 via the S3-compatible API. Without R2 credentials — or

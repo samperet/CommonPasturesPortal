@@ -16,6 +16,8 @@ import { occurrences, searchTerms, snippetFor } from "@/lib/search";
 import { excerptOf } from "@/lib/wiki/excerpt";
 import { unmark, unperson } from "@/lib/wiki/links";
 import { listProposals } from "@/lib/proposals/store";
+import { listCars } from "@/lib/cars/store";
+import { describeCar } from "@/lib/cars/shared";
 import { STATUS_LABELS } from "@/lib/proposals/shared";
 
 /**
@@ -37,7 +39,8 @@ export type SearchKind =
   | "proposals"
   | "tasks"
   | "resources"
-  | "library";
+  | "library"
+  | "cars";
 
 export interface SearchResult {
   title: string;
@@ -68,6 +71,7 @@ const LABELS: Record<SearchKind, string> = {
   tasks: "Tasks",
   resources: "Resources",
   library: "Loan library",
+  cars: "Cars",
 };
 
 /** The app's own pages, found by their names and what they're for (`admin`: for admins only). */
@@ -195,7 +199,7 @@ export async function searchSite(
   const circles = directory.circles;
   const circleName = (id: string) => circles.find((circle) => circle.id === id)?.name ?? "";
 
-  const [skills, documents, types, forum, recommendations, loans, wikis, proposals, tasks] =
+  const [skills, documents, types, forum, recommendations, loans, wikis, proposals, tasks, cars] =
     await Promise.all([
       listSkills(),
       listDocuments(),
@@ -210,6 +214,7 @@ export async function searchSite(
           .filter((circle) => featureEnabled(circle, "tasks"))
           .map(async (circle) => ({ circle, tasks: await listTasks(circle.id) }))
       ),
+      listCars(),
     ]);
 
   const skillsOf = new Map<string, string[]>();
@@ -235,6 +240,28 @@ export async function searchSite(
           .join(" · "),
       },
       body: person.bio ?? undefined,
+    };
+  });
+
+  const carResults = collect(cars, terms, (car) => {
+    const owner =
+      (car.personId
+        ? directory.people.find((person) => person.id === car.personId)?.displayName
+        : car.ownerName) ?? "";
+    return {
+      fields: [
+        [car.plate, 20],
+        [car.plate.replace(/[\s-]/g, ""), 20],
+        [describeCar(car), 8],
+        [owner, 5],
+        [`unit ${car.unit}`, 3],
+      ],
+      result: {
+        title: `${car.plate}${describeCar(car) ? ` — ${describeCar(car)}` : ""}`,
+        href: `/directory?tab=cars&q=${encodeURIComponent(car.plate)}`,
+        meta: [`Unit ${car.unit}`, owner].filter(Boolean).join(" · "),
+      },
+      body: car.notes ?? undefined,
     };
   });
 
@@ -379,6 +406,7 @@ export async function searchSite(
     ["tasks", taskResults],
     ["resources", resourceResults],
     ["library", libraryResults],
+    ["cars", carResults],
   ];
   return groups
     .filter(([, results]) => results.length)

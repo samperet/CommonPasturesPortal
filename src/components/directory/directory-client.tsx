@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Car, Search, UserPlus } from "lucide-react";
@@ -23,17 +23,19 @@ import { Avatar } from "@/components/profile/avatar";
 import { useOnline } from "@/components/chat/presence";
 import { useSession } from "@/lib/auth/client";
 import { useDirectoryQuery } from "@/components/directory/use-directory";
+import { CarsTab } from "@/components/directory/cars";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Pill } from "@/components/ui/pill";
 import { Loading, ErrorCard } from "@/components/ui/status";
 import { Select } from "@/components/ui/select";
 import { SegmentedControl } from "@/components/ui/segmented";
 
-type Tab = "residents" | "carsheds";
+type Tab = "residents" | "carsheds" | "cars";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "residents", label: "Residents" },
   { id: "carsheds", label: "Carsheds" },
+  { id: "cars", label: "Cars" },
 ];
 
 export interface Membership {
@@ -499,7 +501,11 @@ function Carsheds({ doc }: { doc: DirectoryDocument }) {
 }
 
 export function DirectoryClient() {
-  const [tab, setTab] = useState<Tab>("residents");
+  const params = useSearchParams();
+  const asked = params.get("tab");
+  const [tab, setTab] = useState<Tab>(
+    asked === "cars" || asked === "carsheds" ? asked : "residents"
+  );
   const { data, isLoading, error } = useDirectoryQuery();
 
   return (
@@ -525,6 +531,8 @@ export function DirectoryClient() {
         <ErrorCard error={error} fallback="The directory is unavailable." />
       ) : tab === "residents" ? (
         <Residents people={data.people} circles={data.circles} />
+      ) : tab === "cars" ? (
+        <CarsTab doc={data} initialQuery={params.get("q") ?? ""} />
       ) : (
         <Carsheds doc={data} />
       )}

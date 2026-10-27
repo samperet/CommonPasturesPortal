@@ -26,7 +26,7 @@ const cards = [
   {
     href: "/directory",
     title: "Directory",
-    description: "Neighbors' contact details and carshed allocations.",
+    description: "Neighbors' contact details, carsheds, and whose car is whose.",
     icon: BookUser,
   },
   {
