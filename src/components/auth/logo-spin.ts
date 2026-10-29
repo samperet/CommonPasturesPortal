@@ -1,12 +1,16 @@
 /**
- * The sign-in spin for the CVC logo: a slight counter-clockwise wind-up, a
- * fast clockwise release, then a gradual wind-down. It keeps turning gently
- * for as long as signing in takes, and only settles — upright, on a whole
- * turn — once `finish()` is called.
+ * The sign-in spin for the CVC logo: a slight clockwise wind-up, a fast
+ * counter-clockwise release (the way the logo's click easter egg turns),
+ * then a gradual wind-down. It keeps turning gently for as long as signing
+ * in takes, and only settles — upright, on a whole turn — once `finish()`
+ * is called. The motion is worked out as if turning clockwise and drawn
+ * mirrored (`DIRECTION`).
  */
 
 const WIND_UP_MS = 320;
-const WIND_UP_DEG = -32; // counter-clockwise
+const WIND_UP_DEG = -32; // against the spin
+/** Which way it's drawn: -1 mirrors the clockwise motion worked out below into counter-clockwise. */
+const DIRECTION = -1;
 const HOLD_MS = 70; // a beat at full wind-up before the release
 const RELEASE_DEG_PER_S = 1800; // five turns a second
 const FRICTION_S = 0.75; // time constant of the slow-down
@@ -48,7 +52,7 @@ export function startLogoSpin(node: HTMLElement): LogoSpin {
   let frame = 0;
 
   const render = () => {
-    node.style.transform = `rotate(${angle}deg)`;
+    node.style.transform = `rotate(${angle * DIRECTION}deg)`;
   };
 
   const stop = () => {
