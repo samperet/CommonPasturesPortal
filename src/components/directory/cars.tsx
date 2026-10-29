@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Car as CarIcon, ClipboardPaste, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Car as CarIcon, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import type { Car } from "@/lib/cars/shared";
-import { describeCar, parseCarRows } from "@/lib/cars/shared";
+import { describeCar } from "@/lib/cars/shared";
 import type { DirectoryDocument, Person } from "@/lib/directory/types";
 import { unitsOf } from "@/lib/directory/households";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ui/pill";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -23,8 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
  * The Directory's Cars tab: every registered car, by unit, searchable by
  * plate, make, model, colour, owner or unit — so a neighbour can tell whose
  * car is in the lane. Residents add and change their own unit's cars; the
- * Board Secretary and admins any, and they can paste a spreadsheet of them
- * (`/api/cars/import`). A person's page lists their unit's cars too.
+ * Board Secretary and admins any. A person's page lists their unit's cars too.
  */
 
 type CarsResponse = { cars: Car[]; units: number[]; canManageAll: boolean };
@@ -251,75 +249,6 @@ function CarDialog({
   );
 }
 
-function ImportDialog({ onClose }: { onClose: () => void }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [text, setText] = useState("");
-  const preview = useMemo(() => (text.trim() ? parseCarRows(text) : null), [text]);
-  const run = useMutation({
-    mutationFn: () =>
-      apiFetch<{ added: number; updated: number; skipped: string[] }>("/api/cars/import", {
-        method: "POST",
-        body: JSON.stringify({ text }),
-      }),
-    onSuccess: (tally) => {
-      void queryClient.invalidateQueries({ queryKey: ["cars"] });
-      toast({
-        title: `${tally.added} added, ${tally.updated} updated`,
-        description: tally.skipped.length ? `Skipped: ${tally.skipped.join("; ")}` : undefined,
-      });
-      onClose();
-    },
-    onError: (error: Error) =>
-      toast({ title: "Couldn't import", description: error.message, variant: "destructive" }),
-  });
-  return (
-    <Dialog
-      title="Import cars from a spreadsheet"
-      icon={<ClipboardPaste className="h-5 w-5 text-primary" aria-hidden />}
-      onClose={onClose}
-    >
-      <div className="flex flex-col gap-3 text-sm">
-        <p className="text-foreground-light">
-          In the spreadsheet, select the header row and every car below it, copy, and paste here.
-          Columns are read by their names: unit, owner (a resident&apos;s name), make, model,
-          colour, year, plate, state, notes. A plate already registered is updated.
-        </p>
-        <Textarea
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          rows={8}
-          placeholder={
-            "Unit\tOwner\tMake\tModel\tColour\tYear\tPlate\n12\tAda Ash\tSubaru\tOutback\tBlue\t2019\tABC 123"
-          }
-          className="bg-white font-mono text-xs"
-          data-car-import-text
-        />
-        {preview ? (
-          <p className="text-foreground-light" data-car-import-preview>
-            {preview.rows.length} {preview.rows.length === 1 ? "car" : "cars"} read
-            {preview.problems.length ? ` · ${preview.problems.join("; ")}` : ""}.
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!preview?.rows.length || run.isPending}
-            onClick={() => run.mutate()}
-            data-car-import-run
-          >
-            {run.isPending ? "Importing…" : "Import"}
-          </Button>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
-
 /** A registered car as a row: its plate, what it is, whose it is. */
 export function CarRow({
   car,
@@ -397,9 +326,7 @@ export function CarsTab({
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState(initialQuery);
-  const [dialog, setDialog] = useState<
-    { kind: "add" } | { kind: "edit"; car: Car } | { kind: "import" } | null
-  >(null);
+  const [dialog, setDialog] = useState<{ kind: "add" } | { kind: "edit"; car: Car } | null>(null);
   const { data, isLoading } = useQuery(carsQuery());
   const remove = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/cars/${id}`, { method: "DELETE" }),
@@ -447,18 +374,6 @@ export function CarsTab({
             data-car-add
           >
             <Plus className="h-4 w-4" /> Register a car
-          </Button>
-        ) : null}
-        {data?.canManageAll ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => setDialog({ kind: "import" })}
-            data-car-import
-          >
-            <ClipboardPaste className="h-4 w-4" /> Import from a spreadsheet
           </Button>
         ) : null}
       </div>
@@ -523,8 +438,6 @@ export function CarsTab({
           people={people}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === "import" ? (
-        <ImportDialog onClose={() => setDialog(null)} />
       ) : null}
     </div>
   );

@@ -464,12 +464,12 @@ a car** for their own unit (every unit they're listed in), naming the resident i
 (one of the unit's) or anyone else by name, and change or remove their unit's cars; the Board
 Secretary and admins any car. A plate is registered once. Site search finds a car by its plate
 (with or without its spaces), its description or its owner, and opens the Cars tab searched for
-it. A person's page lists their unit's cars. The Secretary and admins can **Import from a
-spreadsheet**: paste the sheet's rows with their header row (tab- or comma-separated); columns
-are read by their names (unit, owner, make, model, colour, year, plate, state, notes), owners
-matched to residents by name, a plate already registered updated rather than doubled
-(`POST /api/cars/import`; `GET`/`POST /api/cars`, `PATCH`/`DELETE /api/cars/<id>`; stored in
-`cars/cars.json`).
+it. A person's page lists their unit's cars. The tab has no import button; the Secretary and
+admins can still load a spreadsheet's rows through the API (`POST /api/cars/import` with `{text}`:
+the rows with their header row, tab- or comma-separated; columns read by their names — unit,
+owner, make, model, colour, year, plate, state, notes — owners matched to residents by name, a
+plate already registered updated rather than doubled). `GET`/`POST /api/cars`,
+`PATCH`/`DELETE /api/cars/<id>`; stored in `cars/cars.json`.
 
 ## Storage
 
