@@ -104,6 +104,7 @@ const WRITE_TOOLS = [
   "add_file",
   "update_document",
   "delete_document",
+  "add_image",
 ];
 
 /** A writer that notes what it was asked, and answers like the real one would. */
@@ -140,6 +141,8 @@ const writer: McpWriter = {
   addFile: async (input) => note("add_file", input, "Added the file"),
   updateDocument: async (input) => note("update_document", input, "Changed"),
   deleteDocument: async (input) => note("delete_document", input, "Deleted"),
+  addImage: async (input) =>
+    note("add_image", input, "![The stove](/api/circles/lcc/wiki/images/i1)"),
 };
 const writing: McpSource = { ...source, write: writer };
 
@@ -302,5 +305,15 @@ describe("the MCP server", () => {
     expect(calls.at(-1)?.input).toMatchObject({ id: "d1", description: "" });
     expect(textOf(await write("delete_document", { id: "d1" }))).toBe("Deleted");
     expect(isError(await write("delete_document", {}))).toBe(true);
+    expect(
+      textOf(
+        await write("add_image", {
+          page: "pellet-stove",
+          contentBase64: "iVBORw==",
+          alt: "The stove",
+        })
+      )
+    ).toBe("![The stove](/api/circles/lcc/wiki/images/i1)");
+    expect(isError(await write("add_image", { page: "pellet-stove" }))).toBe(true);
   });
 });

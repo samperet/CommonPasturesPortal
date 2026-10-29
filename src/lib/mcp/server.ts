@@ -66,6 +66,8 @@ export interface McpWriter {
     meetingDate?: string;
   }) => Promise<Done>;
   deleteDocument: (input: { id: string }) => Promise<Done>;
+  /** A picture for a page (kept with its circle's photos); says the Markdown that shows it. */
+  addImage: (input: { page: string; contentBase64: string; alt?: string }) => Promise<Done>;
 }
 
 export interface McpSource {
@@ -346,6 +348,20 @@ const WRITE_TOOLS = [
       required: ["id"],
     },
   },
+  {
+    name: "add_image",
+    description:
+      "Add a picture (JPEG, PNG or WebP, up to 3 MB) to a page's photos, for those who can edit the page. It answers with the Markdown that shows it, ![…](…): put that where it belongs in the page's body with update_page.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        page: { type: "string", description: "The page (slug or exact title) it's for" },
+        contentBase64: { type: "string", description: "The picture's bytes, base64 encoded" },
+        alt: { type: "string", description: "A few words saying what it shows (optional)" },
+      },
+      required: ["page", "contentBase64"],
+    },
+  },
 ];
 const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((tool) => tool.name));
 
@@ -476,6 +492,13 @@ async function callWriteTool(write: McpWriter, name: string, args: Json | undefi
       if (!id) return failed("Say which document: its id from list_documents");
       return done(await write.deleteDocument({ id }));
     }
+    case "add_image": {
+      const page = str(args, "page");
+      const contentBase64 = str(args, "contentBase64");
+      if (!page || !contentBase64)
+        return failed("Say which page, and give the picture's bytes as base64");
+      return done(await write.addImage({ page, contentBase64, alt: opt(args, "alt") }));
+    }
     default:
       return failed(`Unknown tool: ${name}`);
   }
@@ -588,7 +611,7 @@ export async function callTool(source: McpSource, name: string, args: Json | und
 const READ_INSTRUCTIONS =
   "Read-only access to CVC's pages, documents and directory, as the resident whose key this is. Start with search or list_pages; read_page gives a page's full Markdown.";
 const WRITE_INSTRUCTIONS =
-  "Access to CVC's pages, documents and directory as the resident whose key this is — reading, and writing where they may: create_page, update_page (read_page first, and pass its updatedAt as baseUpdatedAt), move_page, delete_page (to the trash), add_link, add_file, update_document, delete_document. Every change shows under their name. Start with search or list_pages; say what you changed, with the link.";
+  "Access to CVC's pages, documents and directory as the resident whose key this is — reading, and writing where they may: create_page, update_page (read_page first, and pass its updatedAt as baseUpdatedAt), move_page, delete_page (to the trash), add_link, add_file, update_document, delete_document, add_image (a picture for a page, then put its Markdown in the page with update_page). Every change shows under their name. Start with search or list_pages; say what you changed, with the link.";
 
 /**
  * Answer one JSON-RPC message. A notification (no id) gets `null`: nothing

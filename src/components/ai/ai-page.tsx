@@ -35,6 +35,7 @@ const WRITE_TOOLS: [string, string][] = [
   ["add_file", "Upload a small file (up to 3 MB) as a document, or as a new version of one."],
   ["update_document", "Change a document's title, description, type or meeting date."],
   ["delete_document", "Delete a document you may change. No trash: it's gone for good."],
+  ["add_image", "Add a picture to a page you can edit, then place it in the page's text."],
 ];
 
 function ToolList({ tools }: { tools: [string, string][] }) {

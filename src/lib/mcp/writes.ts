@@ -18,6 +18,8 @@ import { TRASH_DAYS, trashPage } from "@/lib/wiki/trash";
 import { canEditPage, canManagePage, canMovePageTo, visiblePages } from "@/lib/wiki/access";
 import { setFollowing, tellFollowers } from "@/lib/wiki/follows";
 import { tellMentioned } from "@/lib/wiki/mentions";
+import { MAX_WIKI_IMAGE_BYTES, saveWikiImage, wikiImageUrl } from "@/lib/wiki/images";
+import { sniffImageType } from "@/lib/images";
 import { canManageDocument, canUploadTo } from "@/lib/documents/access";
 import { announceDocument } from "@/lib/documents/announce";
 import { readGoogleText } from "@/lib/documents/link-fetch";
@@ -378,6 +380,24 @@ export function writerFor(
       const result = await deleteDocument(id);
       if (!result.ok) return no("That document no longer exists");
       return yes(`Deleted “${doc.title}” and its files.`);
+    },
+
+    // As the editor's photo upload does (`api/wiki/images`): its editors, the keeper circle's photos.
+    async addImage({ page: ref, contentBase64, alt }) {
+      const page = await findPage(ref, user);
+      if (!page) return noPage(ref);
+      if (!canEditPage(user, directory, page))
+        return no("Only those this page is open to can add pictures to it");
+      const bytes = new Uint8Array(Buffer.from(contentBase64.replace(/\s+/g, ""), "base64"));
+      if (!bytes.length) return no("The picture is empty (is contentBase64 valid base64?)");
+      if (bytes.length > MAX_WIKI_IMAGE_BYTES)
+        return no(`Pictures must be ${MAX_WIKI_IMAGE_BYTES / 1024 / 1024} MB or smaller`);
+      const contentType = sniffImageType(bytes);
+      if (!contentType) return no("That isn't a JPEG, PNG or WebP picture");
+      const id = await saveWikiImage(page.keeper, bytes, contentType, user.name);
+      if (!id) return no("This circle has as many page photos as it can hold");
+      const label = (alt ?? "").replace(/[[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+      return yes(`![${label}](${wikiImageUrl(page.keeper, id)})`);
     },
   };
 }

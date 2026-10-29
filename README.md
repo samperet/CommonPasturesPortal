@@ -838,7 +838,9 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   `create_page` (optionally `parent`, a page to start it inside, and `draft`), `update_page` (with `baseUpdatedAt` from `read_page`, so an edit made meanwhile
   is handed back to merge rather than overwritten), `move_page`, `delete_page` (to the trash),
   `list_document_types`, `add_link`, `add_file` (base64, up to 3 MB; a new version with
-  `replaces`), `update_document` and `delete_document` — each run as the resident's own account
+  `replaces`), `update_document`, `delete_document` and `add_image` (a picture for a page you can
+  edit, base64, up to 3 MB, kept with its circle's photos; it answers with the `![…](…)` to put in
+  the page with `update_page`) — each run as the resident's own account
   through the app's stores and rules (`lib/mcp/writes.ts`: the same permission checks, refusals
   and side effects as the routes — following, mentions, followers told, documents announced), so
   the assistant can do only what they could, and every change shows under their name. A key is
