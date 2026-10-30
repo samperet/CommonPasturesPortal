@@ -14,7 +14,11 @@ const item = z.object({
   id: z.string().regex(/^[0-9a-f-]{36}$/i, "That isn't a document"),
 });
 const exportSchema = z.union([
-  z.object({ all: z.literal(true), circle: z.string().min(1).max(80).optional() }),
+  z.object({
+    all: z.literal(true),
+    circle: z.string().min(1).max(80).optional(),
+    subs: z.boolean().optional(),
+  }),
   z.object({
     items: z
       .array(item)
@@ -25,7 +29,8 @@ const exportSchema = z.union([
 
 /**
  * Export documents as a zip (`lib/documents/export.ts`): `items` (pages,
- * files and links, proposals) or `all` (with `circle`, all of a circle's).
+ * files and links, proposals) or `all` (with `circle`, all of a circle's;
+ * with `subs` too, its sub groups' as well).
  * The zip is made into storage and kept a day;
  * download it from `href` (yours only).
  */

@@ -120,8 +120,12 @@ export function circlePath<T extends Linked>(circles: T[], circle: T): T[] {
   return [...(community ? [community] : []), ...(parent ? [parent] : []), circle];
 }
 
+/** A circle and its own sub groups (for Community, only itself: what's stored as Community's). */
+export const withSubgroups = <T extends Linked>(circles: T[], circleId: string): Set<string> =>
+  new Set([circleId, ...subgroupsOf(circles, circleId).map((circle) => circle.id)]);
+
 /** The circles a filter on one circle covers: it and the circles within it (for Community, every circle). */
 export function circleFamily<T extends Linked>(circles: T[], circleId: string): Set<string> {
   if (isCommunity(circleId)) return new Set(circles.map((circle) => circle.id));
-  return new Set([circleId, ...subgroupsOf(circles, circleId).map((circle) => circle.id)]);
+  return withSubgroups(circles, circleId);
 }

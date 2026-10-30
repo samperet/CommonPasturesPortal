@@ -52,6 +52,8 @@ const CARD_LIST =
 const ROW_LIST = "divide-y divide-border";
 
 type FileItem = DocumentListing & { kind: "file" };
+/** Which documents the list is of: a circle's ("" every circle's), and of a kind ("" every kind). */
+export type Place = { circle: string; kind: string };
 type ListResponse = {
   documents: DocumentListing[];
   items: (FileItem | PageListing | ProposalListing)[];
@@ -65,7 +67,14 @@ type ListResponse = {
 const PAGES = "__pages";
 const FILES = "__files";
 const PROPOSALS = "__proposals";
-const KINDS: Record<string, string> = { pages: PAGES, files: FILES, proposals: PROPOSALS };
+const DRAFTS = "__drafts";
+const KINDS: Record<string, string> = {
+  pages: PAGES,
+  files: FILES,
+  proposals: PROPOSALS,
+  drafts: DRAFTS,
+};
+const kindOf = (value: string) => Object.keys(KINDS).find((kind) => KINDS[kind] === value);
 
 function ForumResult({ hit, terms }: { hit: ForumSearchHit; terms: string[] }) {
   const href = `/forum/${hit.id}${hit.replyId ? `#reply-${hit.replyId}` : ""}`;
@@ -104,10 +113,13 @@ function ForumResult({ hit, terms }: { hit: ForumSearchHit; terms: string[] }) {
  * Documents — written pages and uploaded files together — searchable by
  * their details and contents. On a circle's page it lists that circle's
  * (and its members can add more); on the Documents page it covers every
- * circle, with a circle filter, and its search takes in the forum too. One
- * **New** button writes a page or uploads a file; the Type filter can keep
- * to pages, to files, or to one type of file. **Export** chooses documents
- * to download as a zip (`export.tsx`).
+ * circle, with a circle filter (a circle's sub groups' documents come with
+ * its own), and its search takes in the forum too. There the circle and the
+ * kind are the page's address (`place`/`onPlace`), so the documents
+ * sidebar can choose them. One **New** button writes a page
+ * or uploads a file; the Type filter can keep to pages, to files, to one
+ * type of file, to proposals, or to your unpublished drafts. **Export**
+ * chooses documents to download as a zip (`export.tsx`).
  */
 export function DocumentsPanel({
   circleId,
@@ -117,11 +129,11 @@ export function DocumentsPanel({
   circles,
   uploadCircles = [],
   typeCircles = [],
-  initialCircle = "",
+  place: chosenPlace,
+  onPlace,
   newPage,
   startUpload = false,
   initialStage = "",
-  initialKind = "",
 }: {
   circleId?: string;
   /** On a circle's page: its name, for the upload form. */
@@ -136,21 +148,33 @@ export function DocumentsPanel({
   uploadCircles?: { id: string; name: string }[];
   /** For the all-documents page: the circles whose document types the resident can edit. */
   typeCircles?: { id: string; name: string }[];
-  /** For the all-documents page: the circle filter to start with. */
-  initialCircle?: string;
+  /** For the all-documents page: the circle ("" every circle) and kind ("pages", "files", "proposals", "drafts"; "" all) shown… */
+  place?: Place;
+  /** …and choosing others. */
+  onPlace?: (change: Partial<Place>) => void;
   /** Open "Write a page" at once — from a link to a page that doesn't exist yet. */
   newPage?: { title: string; from?: string };
   /** Open the upload form at once (the header's Upload a file). */
   startUpload?: boolean;
   /** Start filtered to a stage: "proposed" or "consented" (the dashboard's "And N more"). */
   initialStage?: string;
-  /** Start with one kind: "pages", "files", or "proposals" (`/proposals`). */
-  initialKind?: string;
 }) {
   const listClass = circleId ? ROW_LIST : CARD_LIST;
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [type, setType] = useState(KINDS[initialKind] ?? "");
+  // The circle and kind shown: the address's, on the Documents page.
+  const [ownPlace, setOwnPlace] = useState<Place>({ circle: "", kind: "" });
+  const { circle, kind } = chosenPlace ?? ownPlace;
+  const changePlace =
+    onPlace ?? ((change: Partial<Place>) => setOwnPlace((place) => ({ ...place, ...change })));
+  const setCircle = (next: string) => changePlace({ circle: next });
+  // The Type filter: a kind, or else one type of file.
+  const [typeName, setTypeName] = useState("");
+  const type = KINDS[kind] ?? typeName;
+  const setType = (value: string) => {
+    changePlace({ kind: kindOf(value) ?? "" });
+    setTypeName(kindOf(value) ? "" : value);
+  };
   // "" any stage; "proposed" pages waiting for consent; "consented".
   const [stage, setStage] = useState(
     initialStage === "proposed" || initialStage === "consented" ? initialStage : ""
@@ -158,7 +182,6 @@ export function DocumentsPanel({
   const [year, setYear] = useState("");
   // "" means the natural order: newest first, or best match while searching.
   const [sort, setSort] = useState("");
-  const [circle, setCircle] = useState(initialCircle);
   const [writing, setWriting] = useState<"page" | "meeting" | null>(null);
   const [sheeting, setSheeting] = useState(false);
   const [proposing, setProposing] = useState(false);
@@ -204,9 +227,10 @@ export function DocumentsPanel({
   const filters = {
     q: debounced,
     circle: circleId ?? circle,
-    type: type === PAGES || type === FILES || type === PROPOSALS ? "" : type,
-    kind:
-      type === PAGES ? "pages" : type === FILES ? "files" : type === PROPOSALS ? "proposals" : "",
+    // On the Documents page a circle's sub groups come with it.
+    subs: !circleId && circle ? "1" : "",
+    type: kindOf(type) ? "" : type,
+    kind: kindOf(type) ?? "",
     year,
     sort,
     stage,
@@ -238,10 +262,7 @@ export function DocumentsPanel({
   const typeOptions = useMemo(
     () =>
       Array.from(
-        new Set([
-          ...(data?.typeOptions ?? []),
-          ...(type && type !== PAGES && type !== FILES && type !== PROPOSALS ? [type] : []),
-        ])
+        new Set([...(data?.typeOptions ?? []), ...(type && !kindOf(type) ? [type] : [])])
       ).sort(),
     [data, type]
   );
@@ -252,11 +273,11 @@ export function DocumentsPanel({
   const clearFilters = () => {
     setQuery("");
     setDebounced("");
-    setType("");
+    setTypeName("");
     setYear("");
     setStage("");
     setSort("");
-    if (!circleId) setCircle("");
+    changePlace(circleId ? { kind: "" } : { circle: "", kind: "" });
   };
 
   return (
@@ -294,6 +315,7 @@ export function DocumentsPanel({
           <option value={PAGES}>Written pages</option>
           <option value={FILES}>All files</option>
           <option value={PROPOSALS}>Proposals</option>
+          <option value={DRAFTS}>Drafts (not yet published)</option>
           {typeOptions.length ? (
             <optgroup label="Files of one type">
               {typeOptions.map((entry) => (
@@ -476,6 +498,7 @@ export function DocumentsPanel({
             choice={exportChoice}
             listed={(data?.items ?? []).map(({ kind, id }): ExportItem => ({ kind, id }))}
             circle={circleId ?? (circle || undefined)}
+            subs={!circleId}
             allLabel={
               circleId
                 ? circleName
@@ -534,13 +557,15 @@ export function DocumentsPanel({
           </>
         ) : (
           <p className="text-sm text-muted">
-            {filtered
-              ? "No documents match."
-              : circleId
-                ? canUpload || canWrite
-                  ? "No documents yet — add the first one with New."
-                  : "No documents yet."
-                : "No documents yet."}
+            {type === DRAFTS
+              ? "No drafts — a page started as a draft is listed here until it's published."
+              : filtered
+                ? "No documents match."
+                : circleId
+                  ? canUpload || canWrite
+                    ? "No documents yet — add the first one with New."
+                    : "No documents yet."
+                  : "No documents yet."}
           </p>
         )}
       </ExportChoiceProvider>

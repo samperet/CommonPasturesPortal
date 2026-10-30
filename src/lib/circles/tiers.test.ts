@@ -10,6 +10,7 @@ import {
   parentOf,
   subgroupsOf,
   topLevel,
+  withSubgroups,
 } from "./tiers";
 
 /** Sub groups: one level, never the Board or Community; managed from their circle. */
@@ -86,6 +87,12 @@ describe("Community at the root", () => {
     expect(circlePath(circles, circles[2]).map((entry) => entry.id)).toEqual(["community", "lcc"]);
     expect(Array.from(circleFamily(circles, "lcc"))).toEqual(["lcc", "hedges"]);
     expect(circleFamily(circles, "community").size).toBe(circles.length);
+  });
+
+  it("keeps a circle with its own sub groups — Community with only its own", () => {
+    expect(Array.from(withSubgroups(circles, "lcc"))).toEqual(["lcc", "hedges"]);
+    expect(Array.from(withSubgroups(circles, "hedges"))).toEqual(["hedges"]);
+    expect(Array.from(withSubgroups(circles, "community"))).toEqual(["community"]);
   });
 
   it("gives nobody rights over the circles within it", () => {

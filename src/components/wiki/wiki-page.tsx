@@ -12,6 +12,7 @@ import {
   History as HistoryIcon,
   ListTree,
   MessageSquarePlus,
+  Move as MoveIcon,
   Pencil,
   Plus,
   RotateCcw,
@@ -59,6 +60,7 @@ import { Select } from "@/components/ui/select";
 import { StarButton, useNoteOpened } from "@/components/documents/my-documents";
 import { FollowButton } from "@/components/wiki/follow-button";
 import { useDocsShell } from "@/components/documents/docs-context";
+import { MoveDialog, type PageMove } from "@/components/documents/move-dialog";
 import { ancestorsOf, childrenOf } from "@/lib/wiki/tree";
 
 const NO_THREADS: never[] = [];
@@ -312,6 +314,22 @@ export function WikiPageClient({ slug }: { slug: string }) {
         description: err.message,
         variant: "destructive",
       }),
+  });
+  // Its place among the circle's pages (inside which page, after which), chosen with Move.
+  const [placing, setPlacing] = useState(false);
+  const place = useMutation({
+    mutationFn: ({ parentId, after }: PageMove) =>
+      apiFetch<{ page: WikiPage }>(`/api/wiki/pages/${slug}`, {
+        method: "PATCH",
+        body: JSON.stringify({ parentId, after }),
+      }),
+    onSuccess: ({ page: updated }) => {
+      setPlacing(false);
+      saved(updated);
+      toast({ title: "Page moved" });
+    },
+    onError: (err: Error) =>
+      toast({ title: "Could not move the page", description: err.message, variant: "destructive" }),
   });
   // Moving the page to another circle: to one you're in, at once. Only a circle's members can
   // move pages to it, so for one you're not in a dialog offers to join it first (`rehoming`).
@@ -583,6 +601,18 @@ export function WikiPageClient({ slug }: { slug: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <StarButton doc={{ kind: "page", id: page.id }} title={page.title} />
           <FollowButton slug={slug} following={!!data?.following} />
+          {canManage ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setPlacing(true)}
+              title="Put it inside another of the circle's pages, or reorder it"
+              data-page-move
+            >
+              <MoveIcon className="h-4 w-4" /> Move
+            </Button>
+          ) : null}
           {history.length ? (
             <Button
               size="sm"
@@ -824,6 +854,16 @@ export function WikiPageClient({ slug }: { slug: string }) {
         >
           <MessageSquarePlus className="h-4 w-4" /> Comment
         </button>
+      ) : null}
+      {placing ? (
+        <MoveDialog
+          page={page}
+          pages={pages}
+          circleName={circle?.name ?? ""}
+          moving={place.isPending}
+          onMove={(where) => place.mutate(where)}
+          onClose={() => setPlacing(false)}
+        />
       ) : null}
     </div>
   );

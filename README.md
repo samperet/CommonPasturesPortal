@@ -527,24 +527,27 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   noted or starred while viewing the app as someone (`GET /api/me/documents`,
   `PUT /api/me/documents/starred`, `POST /api/me/documents/recent`). The lists go when someone
   leaves the directory.
-- **The sidebar and the page tree** – beside Documents and every page, a sidebar (as in Outline)
-  lists your **Starred** and **Recent** documents, your **Drafts**, and every circle that has pages,
-  each folding out to its tree: pages inside pages (`parentId`), in their order, the page you're
-  reading marked with its parents unfolded, each circle's sub groups nested inside it; the documents
-  sit on white panels, the circles' headings around them. On a wide screen it stays in view and **[** hides it,
-  **]** brings it back (remembered in the browser); on a phone a **Pages** button slides it in.
-  Over a page's title a trail reads circle › parent › …, and at the end of the page **Pages
-  inside** lists the pages under it. For the circles whose pages you keep (the Board and admins,
-  every circle's), a row's **+** starts a page inside it (the Write-a-page dialog, with the parent
-  shown; `POST /api/wiki/pages` with `parentId`), **Move to…** chooses which page it goes inside
-  and after which of that page's pages, and a row can be dragged: onto another's top or bottom
-  edge to go before or after it, onto its middle to go inside it, onto the circle's name to go to
-  its top level. A move is one `PATCH /api/wiki/pages/<slug>` with `{parentId, after}` (`after`: a
+- **The sidebar** – beside Documents and every page, a sidebar (as in Outline) says where to look;
+  the documents themselves are in the main list, which it filters. **All documents** (with **+**,
+  a new page), **Starred and recent** (`/documents/mine`), your **Drafts** (pages not yet
+  published, `/documents?kind=drafts`), then every circle with documents — Community first, then
+  yours, then the rest — each with its sub groups nested inside it (folding away, remembered in the
+  browser) and a count of its pages, files and proposals, its sub groups' included
+  (`GET /api/documents/counts` gives the files and proposals). Choosing a circle lists its documents
+  and its sub groups' (`/documents?circle=<id>`; the list asks `/api/documents` with `subs=1`, and
+  **Export all** of it takes the sub groups' too); the circle filter and the Type filter change the
+  address the same way, and reading a page marks its circle. On a wide screen it stays in view and
+  **[** hides it, **]** brings it back (remembered in the browser); on a phone a **Browse** button
+  slides it in. Over a page's title a trail reads circle › parent › …, and at the end of the page
+  **Pages inside** lists the pages under it, with **New page inside** for those who keep the page
+  (the Write-a-page dialog, with the parent shown; `POST /api/wiki/pages` with `parentId`). The
+  page's **Move** button (the same people) chooses which page it goes inside and after which of
+  that page's pages: one `PATCH /api/wiki/pages/<slug>` with `{parentId, after}` (`after`: a
   sibling's id, null for first); the store (`movePage`, `placeAfter` in `lib/wiki/tree.ts`) gives
   the page an order key between its neighbours', renumbering the siblings only when a page never
-  moved before has none yet. Past fifty siblings, **Show more**. Keyboard, while reading a page:
-  **e** edits (if you may), **s** stars, **n** starts a page; **⌘K** opens the search except in the
-  editor, where it's the link box.
+  moved before has none yet. A page not yet published is marked **Draft** in the list. Keyboard,
+  while reading a page: **e** edits (if you may), **s** stars, **n** starts a page; **⌘K** opens
+  the search except in the editor, where it's the link box.
 - **Spreadsheets** – an Excel (`.xlsx`) or CSV file opens in CVC: **Open spreadsheet** among its
   row's actions, or its title (`/documents/<id>/sheet`). It's a spreadsheet editor (FortuneSheet):
   formulas, formatting, several sheets, a phone too. **Save** makes a new version of the same file
@@ -704,9 +707,9 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   (also beside Edit while reading, for everyone) lists the edits that made the page, newest
   first, who made each and when; each shows **What changed** (taken out, put in), the page
   **Before** it, or that **Compared with now**, side by side, and its editors can **Restore** the
-  page as it was before any edit (`components/wiki/page-history.tsx`). Pages don't nest: they connect by **links** and **embeds** (each page lists what's
+  page as it was before any edit (`components/wiki/page-history.tsx`). Besides nesting (pages inside pages), they connect by **links** and **embeds** (each page lists what's
   **Linked from** it). Documents lists every page, with a search and a filter by
-  circle (`/documents?circle=<circleId>`); **New → Write a page** asks which of your circles keeps it. A circle's
+  circle, its sub groups' coming with it (`/documents?circle=<circleId>`); **New → Write a page** asks which of your circles keeps it. A circle's
   Filtered Documents module's **Add a page** starts a page with that circle as its parent (so it
   shows in the module); **@ new
   page** (and a link to a page that doesn't exist yet) starts a page kept by the same circle as the

@@ -12,10 +12,11 @@ import { useWikiPages } from "@/components/wiki/wiki-client";
 
 /**
  * The shell around Documents and every page (`/documents*`, `/wiki/*`): the
- * sidebar with your starred and recent documents and every circle's page
- * tree (`sidebar.tsx`) beside the content, as in Outline. On a wide screen
- * it stays in view and can be hidden (`[`) and shown again (`]`); on a phone
- * it slides in from a **Pages** button. `n` starts a page. Spreadsheets
+ * sidebar (`sidebar.tsx`) — all documents, starred and recent, drafts, and
+ * every circle, each choosing what the Documents list shows — beside the
+ * content, as in Outline. On a wide screen it stays in view and can be
+ * hidden (`[`) and shown again (`]`); on a phone it slides in from a
+ * **Browse** button. `n` starts a page. Spreadsheets
  * (`…/sheet`) take the whole width. Pages inside start a page through the
  * shell (`useDocsShell`), inside another page or not.
  */
@@ -112,7 +113,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
             data-docs-drawer-open
             className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-sm font-medium text-foreground/80 transition hover:bg-accent hover:text-foreground"
           >
-            <ListTree className="h-4 w-4" aria-hidden /> Pages
+            <ListTree className="h-4 w-4" aria-hidden /> Browse
           </button>
         </div>
 
@@ -158,7 +159,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
           className="fixed inset-0 z-50 flex lg:hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Pages"
+          aria-label="Browse documents"
           id="docs-drawer"
         >
           <div className="absolute inset-0 bg-black/40" onClick={() => setDrawer(false)} />
@@ -167,7 +168,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
             data-docs-drawer
           >
             <div className="flex items-center justify-between pb-2">
-              <span className="px-1 text-sm font-semibold text-foreground">Pages</span>
+              <span className="px-1 text-sm font-semibold text-foreground">Documents</span>
               <button
                 type="button"
                 onClick={() => setDrawer(false)}

@@ -114,22 +114,24 @@ function countsText(counts: ExportCounts) {
 /**
  * The bar above the list while choosing: how many are chosen, a box for all
  * of those listed, **Download zip**, **Export all…** (`allLabel`; `circle`
- * keeps it to one circle's), and **Done**.
+ * keeps it to one circle's, `subs` with its sub groups'), and **Done**.
  */
 export function ExportBar({
   choice,
   listed,
   allLabel,
   circle,
+  subs = false,
 }: {
   choice: ExportChoice;
   listed: ExportItem[];
   allLabel: string;
   circle?: string;
+  subs?: boolean;
 }) {
   const { toast } = useToast();
   const run = useMutation({
-    mutationFn: (what: { items: ExportItem[] } | { all: true; circle?: string }) =>
+    mutationFn: (what: { items: ExportItem[] } | { all: true; circle?: string; subs?: boolean }) =>
       apiFetch<ExportResult>("/api/documents/export", {
         method: "POST",
         body: JSON.stringify(what),
@@ -187,7 +189,9 @@ export function ExportBar({
             size="sm"
             variant="outline"
             disabled={run.isPending}
-            onClick={() => run.mutate({ all: true, ...(circle ? { circle } : {}) })}
+            onClick={() =>
+              run.mutate({ all: true, ...(circle ? { circle, ...(subs ? { subs } : {}) } : {}) })
+            }
           >
             {allLabel}
           </Button>

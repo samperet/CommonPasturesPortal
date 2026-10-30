@@ -1,3 +1,4 @@
+import { withSubgroups } from "@/lib/circles/tiers";
 import { randomUUID } from "crypto";
 import { Zip, ZipDeflate, ZipPassThrough, strToU8 } from "fflate";
 import {
@@ -71,7 +72,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 };
 
 export type ExportChoice =
-  | { all: true; circle?: string }
+  | { all: true; circle?: string; subs?: boolean }
   | { items: { kind: ExportKind; id: string }[] };
 export type ExportFailure = "empty" | "too_big";
 type Session = { actor: Actor; directory: DirectoryDocument };
@@ -132,8 +133,14 @@ export async function planExport(
       ? new Set(choice.items.map((item) => `${item.kind}:${item.id.toLowerCase()}`))
       : null;
   const scope = "all" in choice ? choice.circle ?? null : null;
+  // All of a circle's, and with `subs` its sub groups' too.
+  const covered = scope
+    ? "all" in choice && choice.subs
+      ? withSubgroups(directory.circles, scope)
+      : new Set([scope])
+    : null;
   const wants = (kind: ExportKind, id: string, circleId: string) =>
-    asked ? asked.has(`${kind}:${id}`) : !scope || circleId === scope;
+    asked ? asked.has(`${kind}:${id}`) : !covered || covered.has(circleId);
   const chosenPages = pages.filter((page) => wants("page", page.id, page.keeper));
   const chosenDocs = documents.filter((doc) => wants("file", doc.id, doc.circleId));
   const chosenProposals = proposals.filter(

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Network, X } from "lucide-react";
-import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { DocumentsPanel, type Place } from "@/components/documents/documents-panel";
 import { useUploadCircles } from "@/components/documents/use-upload-circles";
 import { Card } from "@/components/ui/card";
 import { SectionArt } from "@/components/layout/section-art";
@@ -22,8 +22,10 @@ const WikiMap = dynamic(
 
 /**
  * Every circle's documents in one place — the pages written here and the
- * files uploaded — searchable by title and contents. `?circle=` starts on
- * one circle's; `?new=Title&from=<pageId>` opens "Write a page" (a link to a
+ * files uploaded — searchable by title and contents. `?circle=` shows one
+ * circle's (with its sub groups'), `?kind=` one kind (`pages`, `files`,
+ * `proposals`, `drafts`): the filters change the address, and the
+ * documents sidebar links to them; `?new=Title&from=<pageId>` opens "Write a page" (a link to a
  * page that doesn't exist yet, or the header's New document); `?upload=1`
  * opens the upload form; `?stage=proposed` (or `consented`) starts filtered
  * to that stage; the Map button (`?map=1`, with `focus` or
@@ -42,6 +44,14 @@ export function DocumentsPage() {
       next.delete("focus");
     } else next.set("map", "1");
     router.replace(next.toString() ? `/documents?${next}` : "/documents");
+  };
+  const place: Place = { circle: params.get("circle") ?? "", kind: params.get("kind") ?? "" };
+  const changePlace = (change: Partial<Place>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(change))
+      if (value) next.set(key, value);
+      else next.delete(key);
+    router.replace(next.toString() ? `/documents?${next}` : "/documents", { scroll: false });
   };
   const { circles, uploadCircles, typeCircles } = useUploadCircles();
   return (
@@ -78,10 +88,10 @@ export function DocumentsPage() {
           uploadCircles={uploadCircles}
           typeCircles={typeCircles}
           canWrite={keepers.length > 0}
-          initialCircle={params.get("circle") ?? ""}
+          place={place}
+          onPlace={changePlace}
           startUpload={params.get("upload") === "1"}
           initialStage={params.get("stage") ?? ""}
-          initialKind={params.get("kind") ?? ""}
           newPage={
             requested !== null
               ? { title: requested, from: params.get("from") ?? undefined }

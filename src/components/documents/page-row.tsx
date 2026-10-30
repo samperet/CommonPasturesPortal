@@ -7,11 +7,13 @@ import { shortDate, timeAgo } from "@/lib/time";
 import { Highlighted } from "@/components/documents/document-row";
 import { ConsentRecord, consentSummary } from "@/components/circles/consent-record";
 import { RowChoice } from "@/components/documents/export";
+import { Pill } from "@/components/ui/pill";
 
 /**
  * A written page in the Documents list, beside uploaded files: a book
  * instead of a file icon and a "Page" label instead of a file type, its
- * stage (proposed or consented; drafts aren't labelled), circle, and when
+ * stage (proposed or consented; drafts aren't labelled — but a page not yet
+ * published is, as a Draft), circle, and when
  * it was last edited, then its opening lines — or, in a search, the passage
  * that matched. Its title opens the page. In a circle's Documents module
  * (`compact`), just the book and the title. While documents are being
@@ -50,6 +52,11 @@ export function PageListingRow({
             <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-pine">
               Page
             </span>
+            {page.draft ? (
+              <Pill tone="outline" title="Not published yet: only its author (and admins) see it">
+                Draft
+              </Pill>
+            ) : null}
             {page.stage === "consented" ? (
               <span
                 className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-pine/10 px-2 py-0.5 font-semibold text-pine"

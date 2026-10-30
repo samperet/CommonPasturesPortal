@@ -31,6 +31,7 @@ import { searchTerms, snippetFor } from "@/lib/search";
 import { listProposals } from "@/lib/proposals/store";
 import { listingOf, proposalScore } from "@/lib/proposals/http";
 import { proposalDate, type Proposal } from "@/lib/proposals/shared";
+import { withSubgroups } from "@/lib/circles/tiers";
 import { problem, readBody } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +74,9 @@ const proposalSortable = (proposal: Proposal): Sortable => ({
 
 /**
  * List documents, newest first — or, with `q`, search their details and
- * contents, best match first. Filters: `circle`, `type` (a type's name,
+ * contents, best match first. Filters: `circle` (with `subs=1`, its sub
+ * groups' too — Community's own only, since "every circle" is no filter),
+ * `type` (a type's name,
  * since each circle names its own types), `year` (of the meeting, or the
  * upload), and `stage`: `consented` (only documents whose current version
  * the circle has consented to; also `consented=1`) or `proposed` (only
@@ -84,7 +87,8 @@ const proposalSortable = (proposal: Proposal): Sortable => ({
  * proposals (proposed or consented; withdrawn ones only when asked for), as
  * one list (`items`: each `kind` "file", "page" or "proposal") filtered,
  * searched and sorted alike; `kind=pages`, `kind=files` or `kind=proposals`
- * keeps to one (choosing a file `type` means files). `documents` stays the
+ * keeps to one (choosing a file `type` means files), and `kind=drafts` to
+ * the unpublished pages this viewer can see. `documents` stays the
  * files alone. Listed with the pages, a file made into a page (`madeInto`)
  * is left out while that page is there: the page links to it.
  */
@@ -95,6 +99,13 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const q = (params.get("q") ?? "").trim().slice(0, 200);
   const circle = params.get("circle");
+  // The circles the filter covers: the one asked for, with its sub groups if asked.
+  const covered = circle
+    ? params.get("subs") === "1"
+      ? withSubgroups(directory.circles, circle)
+      : new Set([circle])
+    : null;
+  const inScope = (circleId: string) => !covered || covered.has(circleId);
   const type = params.get("type");
   const year = params.get("year");
   const stage = params.get("stage");
@@ -112,14 +123,13 @@ export async function GET(request: NextRequest) {
   // Listed with the pages, a file made into a page is listed through it (while it's there).
   const livePageIds = new Set(allPages.map((page) => page.id));
   const inCircle = (await listDocuments()).filter(
-    (doc) => (!circle || doc.circleId === circle) && !shownWithPage(doc, livePageIds)
+    (doc) => inScope(doc.circleId) && !shownWithPage(doc, livePageIds)
   );
-  const pagesInCircle = allPages.filter((page) => !circle || page.keeper === circle);
+  const pagesInCircle = allPages.filter((page) => inScope(page.keeper));
   const proposalsInCircle = withPages
     ? (await listProposals()).filter(
         (proposal) =>
-          (!circle || proposal.circleId === circle) &&
-          (kind === "proposals" || proposal.status !== "withdrawn")
+          inScope(proposal.circleId) && (kind === "proposals" || proposal.status !== "withdrawn")
       )
     : [];
   const typeOptions = Array.from(new Set(inCircle.map(label))).sort((a, b) => a.localeCompare(b));
@@ -130,7 +140,8 @@ export async function GET(request: NextRequest) {
       ...proposalsInCircle.map((proposal) => proposalDate(proposal).slice(0, 4)),
     ])
   ).sort((a, b) => b.localeCompare(a));
-  const showFiles = kind !== "pages" && kind !== "proposals" && !proposedOnly;
+  const draftsOnly = kind === "drafts";
+  const showFiles = kind !== "pages" && kind !== "proposals" && !draftsOnly && !proposedOnly;
   const showPages = withPages && kind !== "files" && kind !== "proposals" && !type;
   const showProposals = withPages && (!kind || kind === "proposals") && !type;
   const documents = (showFiles ? inCircle : [])
@@ -138,6 +149,7 @@ export async function GET(request: NextRequest) {
     .filter((doc) => !year || documentDate(doc).startsWith(`${year}-`))
     .filter((doc) => !consentedOnly || consentState(doc) === "consented");
   const pages = (showPages ? pagesInCircle : [])
+    .filter((page) => !draftsOnly || !!page.draft)
     .filter((page) => !year || pageDate(page).startsWith(`${year}-`))
     .filter((page) => !consentedOnly || pageConsentState(page) === "consented")
     .filter((page) => !proposedOnly || pageStage(page) === "proposed")
