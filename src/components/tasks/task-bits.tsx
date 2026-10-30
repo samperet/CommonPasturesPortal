@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Flag, Repeat } from "lucide-react";
+import { BadgeCheck, CalendarDays, Flag, Repeat } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import type { Circle } from "@/lib/circles/types";
 import {
@@ -10,16 +10,20 @@ import {
   STATUS_LABELS,
   TASK_STATUSES,
   checklistProgress,
+  isHolder,
   isOverdue,
-  type Task,
+  type ServedTask,
   type TaskStatus,
   type TaskSummary,
 } from "@/lib/tasks/shared";
+import { roleHolders, roleLabel, rolesOf, sameAssignee, type TaskRole } from "@/lib/tasks/roles";
+import { circleFamily, circleTree } from "@/lib/circles/tiers";
+import { isCommunity } from "@/lib/circles/ids";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/text";
 import { shortDate } from "@/lib/time";
-import { useDirectory } from "@/components/directory/use-directory";
+import { useCircles, useDirectory } from "@/components/directory/use-directory";
 import { Pill, type PillTone } from "@/components/ui/pill";
 import { Select } from "@/components/ui/select";
 
@@ -31,7 +35,13 @@ export type TasksResponse = {
   enabled: boolean;
 };
 /** `canEdit` here is for this task: the circle's editors, or whoever added it where any resident may. */
-export type TaskResponse = { task: Task; canEdit: boolean; canAdd: boolean; enabled: boolean };
+export type TaskResponse = {
+  task: ServedTask;
+  canEdit: boolean;
+  canAdd: boolean;
+  enabled: boolean;
+};
+type Task = ServedTask;
 
 export const tasksQuery = (circleId: string) => ({
   queryKey: ["tasks", circleId],
@@ -66,6 +76,7 @@ export function useTaskUpdate(circleId: string, number: number, onDone?: (task: 
       );
       queryClient.invalidateQueries({ queryKey: ["tasks", circleId] });
       queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       onDone?.(task);
     },
     onError: (error: Error) =>
@@ -77,12 +88,12 @@ export function useTaskUpdate(circleId: string, number: number, onDone?: (task: 
   });
 }
 
-/** Whether you can move a task along: the circle's editors, or its owner. */
+/** Whether you can move a task along: the circle's editors, or whoever has it (its owner, or its role's holders). */
 export const canMoveTask = (
-  task: Pick<Task, "ownerId">,
+  task: Pick<Task, "ownerId" | "holders">,
   canEdit: boolean,
   personId: string | null | undefined
-) => canEdit || (!!personId && task.ownerId === personId);
+) => canEdit || isHolder(task, personId);
 
 export const STATUS_STYLES: Record<TaskStatus, { dot: string; pill: PillTone; column: string }> = {
   todo: { dot: "bg-moss", pill: "accent", column: "border-t-moss" },
@@ -126,6 +137,48 @@ export function StatusSelect({
         </option>
       ))}
     </Select>
+  );
+}
+
+/**
+ * Who has a task: a person; or a role — "Trash Master", with whoever holds it
+ * now (or "nobody now"); a role's finished task shows who held it then.
+ */
+export function TaskOwner({
+  task,
+  hereId,
+  className,
+}: {
+  task: Pick<Task, "ownerName" | "ownerRole" | "holders" | "status">;
+  /** The task's circle (a role from another circle names its circle). */
+  hereId?: string;
+  className?: string;
+}) {
+  const circles = useCircles();
+  if (!task.ownerRole) return <OwnerChip name={task.ownerName} className={className} />;
+  const label = roleLabel(task.ownerRole, circles ?? [], hereId);
+  const who =
+    task.status === "done"
+      ? task.ownerName
+      : task.ownerRole.position || task.holders.length <= 2
+        ? task.holders.map((holder) => holder.name).join(", ") || null
+        : `${task.holders.length} people`;
+  return (
+    <span
+      className={cn("inline-flex min-w-0 items-center gap-1.5 text-xs text-foreground", className)}
+      title={
+        task.ownerRole.position
+          ? `Given to the ${label}: whoever holds the role${who ? ` (${who})` : ""}`
+          : `Given to ${label}: everyone in it${who ? ` (${who})` : ""}`
+      }
+      data-task-role={task.ownerRole.position ?? `group:${task.ownerRole.circleId}`}
+    >
+      <BadgeCheck className="h-5 w-5 shrink-0 text-pine" aria-hidden />
+      <span className="min-w-0 truncate">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted"> · {who ?? "nobody now"}</span>
+      </span>
+    </span>
   );
 }
 
@@ -219,56 +272,146 @@ export function ProgressBar({
   );
 }
 
-/** Choose who a task is for: this circle's members first, then every other resident. */
+/** Who a task is for: a person, a role (or a whole group), or neither. */
+export type Assignee = { ownerId: string | null; ownerRole: TaskRole | null };
+
+const roleValue = (role: TaskRole) =>
+  `r:${role.circleId}:${encodeURIComponent(role.position ?? "")}`;
+const fromValue = (value: string): Assignee => {
+  if (value.startsWith("p:")) return { ownerId: value.slice(2), ownerRole: null };
+  if (value.startsWith("r:")) {
+    const [circleId, position] = value.slice(2).split(":");
+    return {
+      ownerId: null,
+      ownerRole: { circleId, position: position ? decodeURIComponent(position) : null },
+    };
+  }
+  return { ownerId: null, ownerRole: null };
+};
+
+/** The roles and groups to offer, each with who has it now: "Trash Master · Cara Cedar". */
+export function useAssignees(circle: Circle | undefined) {
+  const directory = useDirectory();
+  return useMemo(() => {
+    const people = [...(directory?.people ?? [])]
+      .filter((person) => person.resident !== false)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    const circles = directory?.circles ?? [];
+    const nameOf = (personId: string) =>
+      people.find((person) => person.id === personId)?.displayName ?? null;
+    const describe = (role: TaskRole, here: boolean) => {
+      const holders = roleHolders(circles, role, nameOf).map((holder) => holder.name);
+      const label = here && role.position ? role.position : roleLabel(role, circles);
+      const who = role.position
+        ? holders.join(", ") || "nobody now"
+        : `everyone in it (${holders.length})`;
+      return { role, label: `${label} · ${who}` };
+    };
+    const rolesIn = (entry: Circle, here: boolean) =>
+      rolesOf(entry).map((position) => describe({ circleId: entry.id, position }, here));
+    // Groups: this circle and its sub groups first, then every other (not Community: it has no members).
+    const tree = circleTree(circles).filter(({ circle: entry }) => !isCommunity(entry.id));
+    const near = new Set(circle ? circleFamily(circles, circle.id) : []);
+    const groups = [
+      ...tree.filter(({ circle: entry }) => near.has(entry.id)),
+      ...tree.filter(({ circle: entry }) => !near.has(entry.id)),
+    ].map(({ circle: entry }) => describe({ circleId: entry.id, position: null }, false));
+    return {
+      people,
+      ownRoles: circle ? rolesIn(circle, true) : [],
+      otherRoles: circles
+        .filter((entry) => entry.id !== circle?.id)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .flatMap((entry) => rolesIn(entry, false)),
+      groups,
+    };
+  }, [directory, circle]);
+}
+
+/**
+ * Choose who a task is for: one of this circle's roles (whoever holds it
+ * then has the task, so a repeating task follows the role), one of its
+ * members, a whole group (everyone in a circle or sub group), a role in
+ * another circle, or any other resident.
+ */
 export function OwnerSelect({
   circle,
   value,
   onChange,
   disabled,
   className,
+  people = true,
 }: {
   circle: Circle | undefined;
-  value: string | null;
-  onChange: (personId: string | null) => void;
+  value: Assignee;
+  onChange: (assignee: Assignee) => void;
   disabled?: boolean;
   className?: string;
+  /** Offer people too (off: roles and groups only, as a task button's choice). */
+  people?: boolean;
 }) {
-  const directory = useDirectory();
-  const { members, others } = useMemo(() => {
-    const people = [...(directory?.people ?? [])]
-      .filter((person) => person.resident !== false)
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-    const memberIds = new Set((circle?.seats ?? []).map((seat) => seat.personId));
-    return {
-      members: people.filter((person) => memberIds.has(person.id)),
-      others: people.filter((person) => !memberIds.has(person.id)),
-    };
-  }, [directory, circle]);
+  const { people: everyone, ownRoles, otherRoles, groups } = useAssignees(circle);
+  const memberIds = new Set((circle?.seats ?? []).map((seat) => seat.personId));
+  const members = everyone.filter((person) => memberIds.has(person.id));
+  const others = everyone.filter((person) => !memberIds.has(person.id));
+  const current = value.ownerRole
+    ? roleValue(value.ownerRole)
+    : value.ownerId
+      ? `p:${value.ownerId}`
+      : "";
+  // A role the task has that no seat has any more is still shown, so the choice isn't lost.
+  const known = [...ownRoles, ...otherRoles, ...groups].some((entry) =>
+    sameAssignee(entry.role, value.ownerRole)
+  );
+  const optionFor = (entry: { role: TaskRole; label: string }) => (
+    <option
+      key={roleValue(entry.role)}
+      value={sameAssignee(entry.role, value.ownerRole) ? current : roleValue(entry.role)}
+    >
+      {entry.label}
+    </option>
+  );
   return (
     <Select
-      value={value ?? ""}
+      value={current}
       disabled={disabled}
-      onChange={(event) => onChange(event.target.value || null)}
+      onChange={(event) => onChange(fromValue(event.target.value))}
       className={className}
       aria-label="Owner"
     >
-      <option value="">Unassigned</option>
-      {members.length ? (
+      <option value="">{people ? "Unassigned" : "Choose a role or group"}</option>
+      {value.ownerRole && !known ? (
+        <option value={current}>
+          {value.ownerRole.position ?? "That group"} · nobody holds it now
+        </option>
+      ) : null}
+      {ownRoles.length ? (
+        <optgroup label={circle ? `${circle.name} roles` : "Roles"}>
+          {ownRoles.map(optionFor)}
+        </optgroup>
+      ) : null}
+      {people && members.length ? (
         <optgroup label={circle ? `${circle.name} members` : "Members"}>
           {members.map((person) => (
-            <option key={person.id} value={person.id}>
+            <option key={person.id} value={`p:${person.id}`}>
               {person.displayName}
             </option>
           ))}
         </optgroup>
       ) : null}
-      <optgroup label={members.length ? "Everyone else" : "Residents"}>
-        {others.map((person) => (
-          <option key={person.id} value={person.id}>
-            {person.displayName}
-          </option>
-        ))}
-      </optgroup>
+      {groups.length ? <optgroup label="Groups">{groups.map(optionFor)}</optgroup> : null}
+      {otherRoles.length ? (
+        <optgroup label="Roles in other circles">{otherRoles.map(optionFor)}</optgroup>
+      ) : null}
+      {people ? (
+        <optgroup label={members.length ? "Everyone else" : "Residents"}>
+          {others.map((person) => (
+            <option key={person.id} value={`p:${person.id}`}>
+              {person.displayName}
+            </option>
+          ))}
+        </optgroup>
+      ) : null}
     </Select>
   );
 }

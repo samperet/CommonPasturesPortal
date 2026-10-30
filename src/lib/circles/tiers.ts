@@ -8,6 +8,12 @@ import { BOARD_ID, isCommunity } from "./ids";
  * depend on their being top-level. A parent that isn't there (or can't be
  * one) is ignored. The parent's members manage a sub group, as the Board
  * manages every circle. Safe for the browser.
+ *
+ * Every circle is also shown within Community (`circlesWithin`,
+ * `circleTree`, `circlePath`): Community is everyone at CVC, so it's the
+ * root of the tree. That's only how circles are shown and filtered —
+ * nothing is stored as Community's, and since Community has no members its
+ * place at the root gives nobody rights over the circles within it.
  */
 
 /** What placing a circle needs: its id, and its parent's. */
@@ -73,4 +79,49 @@ export function labelledCircles<T extends Linked & Pick<Circle, "name">>(circles
         .sort(byName)
         .map((sub) => ({ ...sub, label: `${circle.name} › ${sub.name}` })),
     ]);
+}
+
+/**
+ * The circles directly within a circle: its sub groups — or, for Community,
+ * every circle that isn't a sub group (the Board included).
+ */
+export function circlesWithin<T extends Linked & Pick<Circle, "name">>(
+  circles: T[],
+  circleId: string
+) {
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name);
+  return isCommunity(circleId)
+    ? topLevel(circles)
+        .filter((circle) => !isCommunity(circle.id))
+        .sort(byName)
+    : subgroupsOf(circles, circleId).sort(byName);
+}
+
+/**
+ * Every circle as one tree: Community (depth 0), each circle within it by
+ * name (1), each followed by its sub groups (2) — for lists that show the
+ * hierarchy, such as a circle filter.
+ */
+export function circleTree<T extends Linked & Pick<Circle, "name">>(circles: T[]) {
+  const community = circles.find((circle) => isCommunity(circle.id));
+  const rows: { circle: T; depth: number }[] = community ? [{ circle: community, depth: 0 }] : [];
+  for (const circle of circlesWithin(circles, community?.id ?? "community")) {
+    rows.push({ circle, depth: 1 });
+    for (const sub of circlesWithin(circles, circle.id)) rows.push({ circle: sub, depth: 2 });
+  }
+  return rows;
+}
+
+/** A circle's place in the tree, from the root: [Community, Land Care, Hedge Team]. */
+export function circlePath<T extends Linked>(circles: T[], circle: T): T[] {
+  if (isCommunity(circle.id)) return [circle];
+  const community = circles.find((entry) => isCommunity(entry.id));
+  const parent = parentOf(circles, circle);
+  return [...(community ? [community] : []), ...(parent ? [parent] : []), circle];
+}
+
+/** The circles a filter on one circle covers: it and the circles within it (for Community, every circle). */
+export function circleFamily<T extends Linked>(circles: T[], circleId: string): Set<string> {
+  if (isCommunity(circleId)) return new Set(circles.map((circle) => circle.id));
+  return new Set([circleId, ...subgroupsOf(circles, circleId).map((circle) => circle.id)]);
 }

@@ -138,12 +138,15 @@ export function MyDocumentsLinks({
   labelClass,
   onChoose,
   menu = false,
+  listClass,
 }: {
   linkClass: string;
   labelClass: string;
   onChoose: () => void;
   /** In a dropdown menu (entries are menu items). */
   menu?: boolean;
+  /** Around each group's entries (the sidebar sets them on a white panel). */
+  listClass?: string;
 }) {
   const { data } = useMyDocuments();
   const noteOpened = useOpenNoter();
@@ -192,13 +195,13 @@ export function MyDocumentsLinks({
       {starred.length ? (
         <div data-my-starred>
           <p className={labelClass}>Starred</p>
-          {starred.map(entry)}
+          <div className={listClass}>{starred.map(entry)}</div>
         </div>
       ) : null}
       {recent.length ? (
         <div data-my-recent>
           <p className={labelClass}>Recent</p>
-          {recent.map(entry)}
+          <div className={listClass}>{recent.map(entry)}</div>
         </div>
       ) : null}
       {data.starred.length > MENU_SIZE || unstarred.length > MENU_SIZE ? (

@@ -88,3 +88,34 @@ describe("task views", () => {
     ).toBe("All tasks, due within 7 days, Ada Ash's, high priority");
   });
 });
+
+describe("views and roles", () => {
+  const today = "2026-10-12";
+  const roleTask = {
+    status: "todo" as const,
+    ownerId: null,
+    dueDate: null,
+    priority: "normal" as const,
+    ownerRole: { circleId: "facilities", position: "Trash Master" },
+    repeat: "yearly" as const,
+    holders: [{ personId: "p-cara", name: "Cara Cedar" }],
+  };
+  it("count a role's task as each holder's own, and not as nobody's", () => {
+    const view: TaskView = { ...DEFAULT_TASK_VIEW, whose: "mine" };
+    expect(inView(roleTask, view, "p-cara", today)).toBe(true);
+    expect(inView(roleTask, view, "p-ada", today)).toBe(false);
+    expect(inView(roleTask, { ...DEFAULT_TASK_VIEW, whose: "unassigned" }, null, today)).toBe(
+      false
+    );
+    expect(
+      inView(roleTask, { ...DEFAULT_TASK_VIEW, whose: "person", personId: "p-cara" }, null, today)
+    ).toBe(true);
+  });
+
+  it("can keep to repeating tasks", () => {
+    const view: TaskView = { ...DEFAULT_TASK_VIEW, repeating: true };
+    expect(inView(roleTask, view, null, today)).toBe(true);
+    expect(inView({ ...roleTask, repeat: null }, view, null, today)).toBe(false);
+    expect(describeView(view)).toBe("Open tasks, repeating");
+  });
+});

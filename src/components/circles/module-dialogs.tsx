@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   List,
   ListChecks,
+  ListPlus,
   MessagesSquare,
   Network,
   Plus,
@@ -55,6 +56,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { isCommunity } from "@/lib/circles/ids";
+import { featureEnabled } from "@/lib/circles/features";
+import { assigneePhrase, roleLabel, type TaskRole } from "@/lib/tasks/roles";
+import { OwnerSelect } from "@/components/tasks/task-bits";
 import { useCircles } from "@/components/directory/use-directory";
 import { Select } from "@/components/ui/select";
 import { SegmentedControl } from "@/components/ui/segmented";
@@ -86,6 +90,7 @@ export const MODULE_ICONS: Record<ModuleType, typeof BookOpen> = {
   text: Type,
   subgroups: Network,
   alert: Siren,
+  taskbutton: ListPlus,
 };
 
 const MODULE_HINTS: Record<ModuleType, string> = {
@@ -105,6 +110,8 @@ const MODULE_HINTS: Record<ModuleType, string> = {
     "Smaller groups within the circle, each with its own members, page, and icon — and New sub group to start one.",
   alert:
     "A button any resident can press to alert the circle's members — or everyone at CVC — by notification and email. The Safety Crew's; always on its page.",
+  taskbutton:
+    "A button any resident can press to make a task for a role or a group — for requests like “Report a broken light”. Add as many as you like.",
 };
 
 // The visual editor is large, and needs the browser; load it only when someone edits.
@@ -355,6 +362,7 @@ export function AddModuleDialog({
       "forum",
       "documents",
       "subgroups",
+      "taskbutton",
     ] as const
   ).filter((type) => {
     if (REPEATABLE_MODULES.includes(type)) return true;
@@ -409,7 +417,7 @@ export function AddModuleDialog({
 
 /**
  * Setting up a Tasks module: its title, which tasks it shows (open, done or
- * all; whose; when due; high priority only), and who can add tasks — that
+ * all; whose; when due; high priority only; repeating only), and who can add tasks — that
  * last for all of the circle's Tasks modules.
  */
 export function TasksSettings({
@@ -441,7 +449,7 @@ export function TasksSettings({
         onSubmit={(event) => {
           event.preventDefault();
           if (!ready) return;
-          const { personId, high, ...rest } = view;
+          const { personId, high, repeating, ...rest } = view;
           onSave({
             ...module,
             title: title.trim() || undefined,
@@ -451,6 +459,7 @@ export function TasksSettings({
                 ...rest,
                 ...(rest.whose === "person" && personId ? { personId } : {}),
                 ...(high ? { high } : {}),
+                ...(repeating ? { repeating } : {}),
               },
             },
           });
@@ -527,6 +536,16 @@ export function TasksSettings({
               className="h-4 w-4 accent-primary"
             />
             High priority only
+          </label>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={!!view.repeating}
+              onChange={(event) => set({ repeating: event.target.checked })}
+              className="h-4 w-4 accent-primary"
+              data-tasks-repeating
+            />
+            Repeating tasks only
           </label>
           <p className="text-xs text-muted">
             Shows: {describeView(view, person(view.personId ?? null))}. Add another Tasks module for
@@ -904,6 +923,115 @@ export function InformationSettings({
             Cancel
           </Button>
           <Button type="submit" disabled={!valid}>
+            Done
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+/** A Task button, in a few words: "“Report a broken light” makes “Broken light” for the Trash Master". */
+export function describeTaskButton(module: CircleModule, circles: Pick<Circle, "id" | "name">[]) {
+  const button = module.taskButton;
+  if (!button) return "Not set up yet";
+  return `“${button.label}” makes “${button.title}” for ${assigneePhrase(
+    button.assignee,
+    roleLabel(button.assignee, circles)
+  )}`;
+}
+
+/**
+ * Setting up a Task button: what the button says, the task it makes, and
+ * who it's for — a role or a whole group, in a circle you look after (the
+ * server checks too); the task goes on that circle's board, so that circle
+ * needs its tasks on (a Tasks module on its page).
+ */
+export function TaskButtonSettings({
+  module,
+  circle,
+  onSave,
+  onClose,
+}: {
+  module: CircleModule;
+  circle: Circle;
+  onSave: (module: CircleModule) => void;
+  onClose: () => void;
+}) {
+  const circles = useCircles() ?? [];
+  const [label, setLabel] = useState(module.taskButton?.label ?? "");
+  const [title, setTitle] = useState(module.taskButton?.title ?? "");
+  const [assignee, setAssignee] = useState<TaskRole | null>(module.taskButton?.assignee ?? null);
+  const target = assignee ? circles.find((entry) => entry.id === assignee.circleId) : undefined;
+  const ready = !!label.trim() && !!title.trim() && !!assignee;
+  return (
+    <Dialog
+      title="Task button"
+      icon={<ListPlus className="h-5 w-5 text-primary" aria-hidden />}
+      onClose={onClose}
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!ready) return;
+          onSave({
+            ...module,
+            taskButton: { label: label.trim(), title: title.trim(), assignee: assignee! },
+          });
+        }}
+        data-task-button-settings
+      >
+        <label className="flex flex-col gap-1 text-sm font-medium text-foreground">
+          What the button says
+          <Input
+            value={label}
+            maxLength={60}
+            placeholder="Report a broken light"
+            onChange={(event) => setLabel(event.target.value)}
+            className="bg-white"
+            data-task-button-label
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-foreground">
+          The task it makes
+          <Input
+            value={title}
+            maxLength={160}
+            placeholder="Broken light"
+            onChange={(event) => setTitle(event.target.value)}
+            className="bg-white"
+            data-task-button-title
+          />
+          <span className="text-xs font-normal text-muted">
+            Whoever presses it can add a note, which becomes the task&apos;s description.
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-foreground">
+          Who it&apos;s for
+          <OwnerSelect
+            circle={circle}
+            value={{ ownerId: null, ownerRole: assignee }}
+            onChange={(chosen) => setAssignee(chosen.ownerRole)}
+            people={false}
+            className="h-10"
+          />
+          <span className="text-xs font-normal text-muted">
+            A role (whoever holds it then has the task) or a whole group. The task goes on
+            {target ? ` ${target.name}'s` : " that circle's"} board.
+          </span>
+        </label>
+        {target && !featureEnabled(target, "tasks") ? (
+          <p className="rounded-md bg-sun/15 px-3 py-2 text-sm text-[#7a5200]" data-task-button-off>
+            {target.name} has no Tasks module on its page, so its tasks are off: the button
+            can&apos;t make one there until it has.
+          </p>
+        ) : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!ready}>
             Done
           </Button>
         </div>

@@ -21,16 +21,19 @@ import {
   DEFAULT_TASK_VIEW,
   describeView,
   inView,
-  type Task,
+  isHolder,
+  type ServedTask as Task,
   type TaskPriority,
   type TaskRepeat,
   type TaskStatus,
   type TaskSummary,
 } from "@/lib/tasks/shared";
+import { isUnassigned } from "@/lib/tasks/roles";
 import {
   DueLabel,
-  OwnerChip,
   OwnerSelect,
+  TaskOwner,
+  type Assignee,
   PriorityFlag,
   ProgressBar,
   RepeatMark,
@@ -108,6 +111,7 @@ function useMoveTask(circleId: string) {
       queryClient.invalidateQueries({ queryKey: ["tasks", circleId] });
       queryClient.invalidateQueries({ queryKey: ["task", circleId, number] });
       queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
     },
   });
 }
@@ -125,7 +129,8 @@ export function NewTaskForm({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [title, setTitle] = useState("");
-  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const nobody: Assignee = { ownerId: null, ownerRole: null };
+  const [owner, setOwner] = useState<Assignee>(nobody);
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("normal");
   const [repeat, setRepeat] = useState<TaskRepeat | "">("");
@@ -136,7 +141,7 @@ export function NewTaskForm({
         method: "POST",
         body: JSON.stringify({
           title,
-          ownerId,
+          ...owner,
           dueDate: dueDate || null,
           priority,
           repeat: repeat || null,
@@ -145,8 +150,9 @@ export function NewTaskForm({
     onSuccess: ({ task }) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", circle!.id] });
       queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks"] });
       setTitle("");
-      setOwnerId(null);
+      setOwner(nobody);
       setDueDate("");
       setPriority("normal");
       setRepeat("");
@@ -205,7 +211,7 @@ export function NewTaskForm({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted">
             Owner
-            <OwnerSelect circle={circle} value={ownerId} onChange={setOwnerId} />
+            <OwnerSelect circle={circle} value={owner} onChange={setOwner} />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted">
             Due
@@ -302,7 +308,7 @@ export function TaskCard({
         </div>
       ) : null}
       <div className="flex items-center justify-between gap-2">
-        <OwnerChip name={task.ownerName} />
+        <TaskOwner task={task} hereId={circleId} />
         {movable ? (
           <StatusSelect value={task.status} onChange={(status) => onMove!(status)} />
         ) : null}
@@ -312,6 +318,7 @@ export function TaskCard({
 }
 
 type Who = "everyone" | "mine" | "unassigned";
+type Kind = "all" | "repeating";
 
 /** A circle's tasks as a board: a column for each status (stacked on phones), with filters and quick add. */
 export function TaskBoardClient({ circleId }: { circleId: string }) {
@@ -321,6 +328,7 @@ export function TaskBoardClient({ circleId }: { circleId: string }) {
   const { data, isLoading, error } = useQuery(tasksQuery(circleId));
   const move = useMoveTask(circleId);
   const [who, setWho] = useState<Who>("everyone");
+  const [kind, setKind] = useState<Kind>("all");
   const [query, setQuery] = useState("");
   const [showAllDone, setShowAllDone] = useState(false);
   const [over, setOver] = useState<TaskStatus | null>(null);
@@ -334,8 +342,9 @@ export function TaskBoardClient({ circleId }: { circleId: string }) {
       .filter(
         (task) =>
           who === "everyone" ||
-          (who === "mine" ? !!user?.personId && task.ownerId === user.personId : !task.ownerId)
+          (who === "mine" ? isHolder(task, user?.personId) : isUnassigned(task))
       )
+      .filter((task) => kind === "all" || !!task.repeat)
       .filter(
         (task) =>
           !wanted ||
@@ -343,7 +352,7 @@ export function TaskBoardClient({ circleId }: { circleId: string }) {
           String(task.number) === wanted.replace(/^#/, "")
       )
       .sort(byUrgency);
-  }, [data, who, query, user]);
+  }, [data, who, kind, query, user]);
 
   const columns = TASK_STATUSES.map((status) => {
     let tasks = visible.filter((task) => task.status === status);
@@ -366,10 +375,19 @@ export function TaskBoardClient({ circleId }: { circleId: string }) {
   return (
     <div className="flex flex-col gap-5">
       <BackLink href={`/circles/${circleId}`} label={circle?.name ?? "Circle"} />
-      <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-        <ListChecks className="h-6 w-6 text-primary" aria-hidden />{" "}
-        {circle ? `${circle.name} tasks` : "Tasks"}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+          <ListChecks className="h-6 w-6 text-primary" aria-hidden />{" "}
+          {circle ? `${circle.name} tasks` : "Tasks"}
+        </h1>
+        <Link
+          href={`/tasks?circle=${circleId}`}
+          className="text-sm font-medium text-secondary-foreground hover:underline"
+          data-all-tasks-link
+        >
+          Every circle&apos;s tasks
+        </Link>
+      </div>
       {circle && !enabled ? (
         <p className="text-sm text-muted">
           {circle.name} has turned its tasks off; these are kept as they were.
@@ -391,6 +409,16 @@ export function TaskBoardClient({ circleId }: { circleId: string }) {
             { value: "everyone", label: "Everyone" },
             { value: "mine", label: "Mine" },
             { value: "unassigned", label: "Unassigned" },
+          ]}
+        />
+        <SegmentedControl
+          size="sm"
+          label="Which tasks"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "all", label: "All" },
+            { value: "repeating", label: "Repeating" },
           ]}
         />
         <div className="relative w-full sm:w-64">
@@ -561,7 +589,7 @@ export function TasksModule({
                 <PriorityFlag task={task} />
                 <DueLabel task={task} />
                 <RepeatMark task={task} />
-                <OwnerChip name={task.ownerName} className="w-32 justify-end" />
+                <TaskOwner task={task} hereId={circle.id} className="max-w-[12rem] justify-end" />
               </li>
             ))}
           </ul>

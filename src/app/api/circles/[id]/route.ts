@@ -11,7 +11,8 @@ import { hasAlert } from "@/lib/circles/features";
 import { circleContext, circleProblem } from "@/lib/circles/access";
 import { circleUpdateSchema, deleteCircle, updateCircle } from "@/lib/circles/store";
 import { canManageCircle } from "@/lib/circles/icons";
-import { canHaveSubgroups, parentOf } from "@/lib/circles/tiers";
+import { canHaveSubgroups, managesCircle, parentOf } from "@/lib/circles/tiers";
+import { findRole } from "@/lib/tasks/roles";
 import { isAdmin } from "@/lib/auth/admins";
 import { iconKey, setCircleIcon } from "@/lib/circles/icons";
 import { deleteBinary, deleteJson } from "@/lib/storage";
@@ -37,11 +38,37 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if ("error" in parsed) return parsed.error;
 
   const circle = ctx.directory.circles.find((entry) => entry.id === params.id)!;
+  // Community's list of the circles within it is built in; a sub group has no sub groups.
   if (
     parsed.data.modules?.some((module) => module.type === "subgroups") &&
-    !canHaveSubgroups(ctx.directory.circles, circle)
+    !canHaveSubgroups(ctx.directory.circles, circle) &&
+    !isCommunity(circle.id)
   )
-    return problem("Only a circle (not a sub group, or Community) can have sub groups");
+    return problem("A sub group can't have sub groups of its own");
+  // A Task button makes tasks in its role's or group's circle: only for circles its editor
+  // manages (admins, any), so nobody points requests at another circle's board. One already
+  // on the page, unchanged, stays as it is.
+  const saved = new Map((circle.modules ?? []).map((module) => [module.id, module]));
+  for (const placed of parsed.data.modules ?? []) {
+    const button = placed.taskButton;
+    if (!button) continue;
+    const before = saved.get(placed.id)?.taskButton?.assignee;
+    if (
+      before?.circleId === button.assignee.circleId &&
+      (before.position ?? "") === (button.assignee.position ?? "")
+    )
+      continue;
+    const target = ctx.directory.circles.find((entry) => entry.id === button.assignee.circleId);
+    if (!target || isCommunity(target.id))
+      return problem("Choose a role or a group in a circle for the Task button");
+    if (!findRole(ctx.directory.circles, button.assignee))
+      return problem(`Nobody in ${target.name} has the role “${button.assignee.position}”`);
+    if (!ctx.actor.admin && !managesCircle(ctx.directory.circles, target.id, ctx.personId))
+      return problem(
+        `A Task button can only make tasks for circles you look after: ${target.name} isn't one`,
+        403
+      );
+  }
   // Anyone can send an alert from an Alert module — to everyone at CVC — so only admins place one.
   const alerting = parsed.data.modules?.some((module) => module.type === "alert");
   if (alerting !== undefined && alerting !== hasAlert(circle) && !ctx.actor.admin)

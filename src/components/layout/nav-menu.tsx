@@ -13,6 +13,7 @@ import { useWikiPages } from "@/components/wiki/wiki-client";
 import { useUploadCircles } from "@/components/documents/use-upload-circles";
 import { cn } from "@/lib/utils";
 import { subgroupsOf, topLevel } from "@/lib/circles/tiers";
+import { isCommunity } from "@/lib/circles/ids";
 import type { Circle } from "@/lib/circles/types";
 
 /**
@@ -192,7 +193,8 @@ export function DocumentsMenuItems({ close }: { close: () => void }) {
 
 /**
  * The circles (sub groups within theirs), split into yours — those you're in,
- * or in one of whose sub groups — and the rest, each by name with its icon.
+ * or in one of whose sub groups — and the rest, each by name with its icon;
+ * and Community, everyone, listed first as the circle every other is within.
  */
 export function useCircleGroups() {
   const circles = useCircles();
@@ -202,10 +204,13 @@ export function useCircleGroups() {
   const subsOf = (circleId: string) => subgroupsOf(all, circleId).sort(byName);
   const inIt = (circle: Circle) =>
     circle.seats.some((seat) => !!user?.personId && seat.personId === user.personId);
-  const sorted = topLevel(all).sort(byName);
+  const community = all.find((circle) => isCommunity(circle.id)) ?? null;
+  const sorted = topLevel(all)
+    .filter((circle) => !isCommunity(circle.id))
+    .sort(byName);
   const mine = sorted.filter((circle) => inIt(circle) || subsOf(circle.id).some(inIt));
   const others = sorted.filter((circle) => !mine.includes(circle));
-  return { mine, others, subsOf };
+  return { community, mine, others, subsOf };
 }
 
 /**
@@ -215,7 +220,7 @@ export function useCircleGroups() {
  * leaves.
  */
 export function CirclesMenuItems({ close }: { close: () => void }) {
-  const { mine, others, subsOf } = useCircleGroups();
+  const { community, mine, others, subsOf } = useCircleGroups();
   const host = useContext(FlyoutHost);
   const [flyout, setFlyout] = useState<{ id: string; top: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -300,6 +305,7 @@ export function CirclesMenuItems({ close }: { close: () => void }) {
       >
         All circles
       </Link>
+      {community ? row(community) : null}
       {mine.length ? (
         <>
           <p className={groupLabel}>Your circles</p>
@@ -426,7 +432,7 @@ export function MobileDocumentsLinks({ onChoose }: { onChoose: () => void }) {
 
 /** In the phone menu, under Circles: yours, with their icons (sub groups under theirs) — and the rest on request. */
 export function MobileCircleLinks({ onChoose }: { onChoose: () => void }) {
-  const { mine, others, subsOf } = useCircleGroups();
+  const { community, mine, others, subsOf } = useCircleGroups();
   const [all, setAll] = useState(false);
   // A circle's sub groups stay folded until its button is pressed, so the list stays short.
   const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
@@ -485,6 +491,7 @@ export function MobileCircleLinks({ onChoose }: { onChoose: () => void }) {
   };
   return (
     <>
+      {community ? row(community) : null}
       {mine.map(row)}
       {all ? others.map(row) : null}
       {others.length ? (

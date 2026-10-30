@@ -90,6 +90,7 @@ const moduleSchema = z
             personId: z.string().max(80).optional(),
             due: z.enum(TASK_DUES),
             high: z.boolean().optional(),
+            repeating: z.boolean().optional(),
           })
           .refine(
             (view) => view.whose !== "person" || !!view.personId,
@@ -111,6 +112,24 @@ const moduleSchema = z
         background: z.enum(TEXT_BACKGROUNDS).optional(),
       })
       .optional(),
+    taskButton: z
+      .object({
+        label: z
+          .string()
+          .trim()
+          .min(1, "Say what the button says")
+          .max(60, "Keep the button's words to 60 characters"),
+        title: z
+          .string()
+          .trim()
+          .min(1, "Name the task it makes")
+          .max(160, "Keep the task's title to 160 characters"),
+        assignee: z.object({
+          circleId: z.string().min(1).max(80),
+          position: z.string().trim().min(1).max(40).nullable(),
+        }),
+      })
+      .optional(),
   })
   .refine(
     (module) => (module.type === "information") === !!module.info,
@@ -129,8 +148,12 @@ const moduleSchema = z
     "Only a Finances module says who can see it"
   )
   .refine((module) => module.type === "text" || !module.text, "Only Custom Text modules hold text")
+  .refine(
+    (module) => (module.type === "taskbutton") === !!module.taskButton,
+    "Set up each Task button: what it says, the task it makes, and who it's for"
+  )
   .transform(
-    ({ title, info, tasks, log, finances, text, ...module }): CircleModule => ({
+    ({ title, info, tasks, log, finances, text, taskButton, ...module }): CircleModule => ({
       ...module,
       ...(title ? { title } : {}),
       ...(info ? { info } : {}),
@@ -138,6 +161,7 @@ const moduleSchema = z
       ...(log ? { log } : {}),
       ...(finances ? { finances } : {}),
       ...(text ? { text } : {}),
+      ...(taskButton ? { taskButton } : {}),
     })
   );
 
@@ -169,8 +193,9 @@ export const circleInputSchema = z.object({
     .optional(),
 });
 
+// A circle's parent is set when it's started and never moved, so an update can't name one.
 export const circleUpdateSchema = circleInputSchema
-  .omit({ kind: true })
+  .omit({ kind: true, parentId: true })
   .extend({
     joinPolicy: z.enum(["open", "apply"]),
     kind,

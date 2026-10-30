@@ -1,6 +1,7 @@
 import { todayInVermont } from "@/lib/time";
 import type { Actor } from "@/lib/auth/actor";
 import type { CommentRecord } from "@/lib/comments/shared";
+import { isUnassigned, type Holder, type TaskRole } from "./roles";
 
 /**
  * Circle tasks, as shared by the server and the browser (no server imports).
@@ -59,10 +60,12 @@ export function nextOccurrence(dueDate: string | null, repeat: TaskRepeat, today
 }
 
 /**
- * Which tasks a Tasks module shows (its settings; a circle can have several,
- * each its own view): open, done or all; everyone's, the reader's own,
- * nobody's, or one person's; due any time, overdue, or within a week or a
- * month (overdue ones included); and perhaps only high priority.
+ * Which tasks a Tasks module (or the Tasks page) shows; a circle can have
+ * several modules, each its own view: open, done or all; everyone's, the
+ * reader's own, nobody's, or one person's ("own" and "one person's" count
+ * tasks given to a role they hold); due any time, overdue, or within a week
+ * or a month (overdue ones included); and perhaps only high priority, or
+ * only repeating tasks.
  */
 export const TASK_SHOWS = ["open", "done", "all"] as const;
 export type TaskShow = (typeof TASK_SHOWS)[number];
@@ -92,6 +95,8 @@ export interface TaskView {
   due: TaskDue;
   /** Only high priority. */
   high?: boolean;
+  /** Only tasks that repeat. */
+  repeating?: boolean;
 }
 export const DEFAULT_TASK_VIEW: TaskView = { show: "open", whose: "everyone", due: "any" };
 
@@ -100,19 +105,32 @@ const addDays = (date: string, days: number) => {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 };
 
+/** Whether a person has a task now: they're its owner, or hold the role it's given to (`holders`, as served). */
+export const isHolder = (
+  task: Pick<Task, "ownerId"> & { holders?: Holder[] },
+  personId: string | null | undefined
+) =>
+  !!personId &&
+  (task.holders
+    ? task.holders.some((holder) => holder.personId === personId)
+    : task.ownerId === personId);
+
 /** Whether a task is in a view (`me`: the reader's person id; `today`: YYYY-MM-DD). */
 export function inView(
-  task: Pick<Task, "status" | "ownerId" | "dueDate" | "priority">,
+  task: Pick<Task, "status" | "ownerId" | "dueDate" | "priority" | "ownerRole" | "repeat"> & {
+    holders?: Holder[];
+  },
   view: TaskView,
   me: string | null,
   today: string
 ) {
   if (view.show === "open" && task.status === "done") return false;
   if (view.show === "done" && task.status !== "done") return false;
-  if (view.whose === "mine" && (!me || task.ownerId !== me)) return false;
-  if (view.whose === "unassigned" && task.ownerId) return false;
-  if (view.whose === "person" && task.ownerId !== view.personId) return false;
+  if (view.whose === "mine" && !isHolder(task, me)) return false;
+  if (view.whose === "unassigned" && !isUnassigned(task)) return false;
+  if (view.whose === "person" && !isHolder(task, view.personId)) return false;
   if (view.high && task.priority !== "high") return false;
+  if (view.repeating && !task.repeat) return false;
   if (view.due === "any") return true;
   if (!task.dueDate) return false;
   if (view.due === "overdue") return task.status !== "done" && task.dueDate < today;
@@ -129,6 +147,7 @@ export function describeView(view: TaskView, personName?: string | null) {
   else if (view.whose === "unassigned") parts.push("nobody's yet");
   else if (view.whose === "person") parts.push(`${personName ?? "one person"}'s`);
   if (view.high) parts.push("high priority");
+  if (view.repeating) parts.push("repeating");
   return parts.join(", ");
 }
 
@@ -157,9 +176,15 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  /** Who's doing it: a person in the directory. */
+  /**
+   * Who's doing it: a person in the directory. For a task given to a role,
+   * unset while it's open (whoever holds the role has it) and, once done,
+   * whoever held the role then.
+   */
   ownerId: string | null;
   ownerName: string | null;
+  /** Or a role (`roles.ts`): whoever holds it now has the task. */
+  ownerRole?: TaskRole | null;
   /** YYYY-MM-DD */
   dueDate: string | null;
   checklist: ChecklistItem[];
@@ -175,10 +200,14 @@ export interface Task {
   repeatedAs?: number | null;
 }
 
-/** A task as listed: with how many comments it has. */
+/** A task as served: with who has it now (its owner, or its role's holders; `roles.ts`). */
+export type ServedTask = Task & { holders: Holder[] };
+
+/** A task as listed: with how many comments it has, and who has it now. */
 export type TaskSummary = Omit<Task, "activity" | "description"> & {
   commentCount: number;
   hasDescription: boolean;
+  holders: Holder[];
 };
 
 /** A comment on a task (replies nest to any depth); see `lib/comments/shared.ts`. */

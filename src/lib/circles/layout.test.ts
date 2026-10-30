@@ -77,10 +77,12 @@ describe("modulesFor", () => {
   });
 
   it("gives Community no members (it's everyone)", () => {
+    // …and a built-in list of the circles within it.
     expect(types(modulesFor({ id: "community" }, { hasSchedule: false }))).toEqual([
       "information",
       "tasks",
       "documents",
+      "subgroups",
     ]);
   });
 });

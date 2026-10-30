@@ -16,7 +16,7 @@ import {
   TASK_REPEATS,
   TASK_STATUSES,
   checklistProgress,
-  type Task,
+  type ServedTask as Task,
   type TaskPriority,
   type TaskRepeat,
 } from "@/lib/tasks/shared";
@@ -26,8 +26,8 @@ import { useWikiPages } from "@/components/wiki/wiki-client";
 import { TaskComments } from "@/components/tasks/task-comments";
 import {
   DueLabel,
-  OwnerChip,
   OwnerSelect,
+  TaskOwner,
   PriorityFlag,
   STATUS_STYLES,
   StatusPill,
@@ -301,7 +301,8 @@ export function TaskPageClient({ circleId, number }: { circleId: string; number:
   const canEdit = !!data?.canEdit && enabled;
   const me = user?.personId ?? null;
   const canMove = enabled && canMoveTask(task, canEdit, me);
-  const isOwner = !!me && task.ownerId === me;
+  // Handing back is for a person's task (a role's stays with the role).
+  const isOwner = !!me && task.ownerId === me && !task.ownerRole;
   const save = (change: Record<string, unknown>) => update.mutate(change);
 
   return (
@@ -437,14 +438,27 @@ export function TaskPageClient({ circleId, number }: { circleId: string; number:
               {canEdit ? (
                 <OwnerSelect
                   circle={circle}
-                  value={task.ownerId}
-                  onChange={(ownerId) => save({ ownerId })}
+                  value={{
+                    ownerId: task.ownerRole ? null : task.ownerId,
+                    ownerRole: task.ownerRole ?? null,
+                  }}
+                  onChange={(owner) =>
+                    save(
+                      owner.ownerRole ? { ownerRole: owner.ownerRole } : { ownerId: owner.ownerId }
+                    )
+                  }
                   disabled={update.isPending}
                 />
               ) : (
-                <OwnerChip name={task.ownerName} className="text-sm" />
+                <TaskOwner task={task} hereId={circleId} className="text-sm" />
               )}
-              {enabled && me && !task.ownerId ? (
+              {canEdit && task.ownerRole ? (
+                <p className="text-xs text-muted" data-task-role-note>
+                  Whoever holds the role has it
+                  {task.repeat ? ", each time it comes round" : ""}.
+                </p>
+              ) : null}
+              {enabled && me && !task.ownerId && !task.ownerRole ? (
                 <Button
                   size="sm"
                   variant="outline"

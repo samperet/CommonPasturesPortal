@@ -17,6 +17,7 @@ import {
   Camera,
   Lightbulb,
   Eye,
+  ListChecks,
   ExternalLink,
 } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -46,6 +47,7 @@ const links = [
   { href: "/", label: "Dashboard", icon: Grid },
   { href: "/directory", label: "Directory", icon: BookUser },
   { href: "/circles", label: "Circles", icon: Layers },
+  { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/library", label: "Loan Library", icon: Share2 },
   { href: "/forum", label: "Forum", icon: MessagesSquare },
@@ -137,6 +139,8 @@ export function AppShell({
   // Documents and pages have the sidebar beside them, so their column is wider.
   const wide = pathname.startsWith("/documents") || pathname.startsWith("/wiki/");
   const width = wide ? "max-w-[90rem]" : "max-w-6xl";
+  // The header's row has a little more room than the page, so every section fits on one line.
+  const headerWidth = wide ? "max-w-[90rem]" : "max-w-7xl";
 
   // Register the service worker (installable app, notifications) and catch the install prompt.
   useEffect(() => setUpPwa(), []);
@@ -211,7 +215,7 @@ export function AppShell({
               <div
                 className={cn(
                   "mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1.5 text-sm md:px-6",
-                  width
+                  headerWidth
                 )}
               >
                 <span className="flex items-center gap-1.5">
@@ -234,7 +238,7 @@ export function AppShell({
           <div
             className={cn(
               "relative mx-auto flex items-center justify-between gap-4 px-4 py-3 md:px-6",
-              width
+              headerWidth
             )}
           >
             <Link

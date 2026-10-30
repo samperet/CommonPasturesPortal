@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   canHaveSubgroups,
+  circleFamily,
   circleLabel,
+  circlePath,
+  circleTree,
+  circlesWithin,
   managesCircle,
   parentOf,
   subgroupsOf,
@@ -49,5 +53,44 @@ describe("sub groups", () => {
     // Not the other way round: a sub group's members don't manage its circle.
     expect(managesCircle(circles, "lcc", "000000000005")).toBe(false);
     expect(managesCircle(circles, "lcc", null)).toBe(false);
+  });
+});
+
+describe("Community at the root", () => {
+  it("has every circle that isn't a sub group within it, and each its sub groups", () => {
+    expect(circlesWithin(circles, "community").map((entry) => entry.id)).toEqual(
+      [
+        "board",
+        "deeper",
+        "Land Care Circle" === circles[2].name ? "lcc" : "lcc",
+        "odd",
+        "orphan",
+      ].sort((a, b) =>
+        circles.find((c) => c.id === a)!.name.localeCompare(circles.find((c) => c.id === b)!.name)
+      )
+    );
+    expect(circlesWithin(circles, "lcc").map((entry) => entry.id)).toEqual(["hedges"]);
+  });
+
+  it("shows as one tree, gives each circle its path, and filters a circle with its sub groups", () => {
+    const tree = circleTree(circles);
+    expect(tree[0]).toMatchObject({ circle: { id: "community" }, depth: 0 });
+    const lcc = tree.findIndex((row) => row.circle.id === "lcc");
+    expect(tree[lcc + 1]).toMatchObject({ circle: { id: "hedges" }, depth: 2 });
+    expect(tree.find((row) => row.circle.id === "board")?.depth).toBe(1);
+    expect(circlePath(circles, circles[3]).map((entry) => entry.id)).toEqual([
+      "community",
+      "lcc",
+      "hedges",
+    ]);
+    expect(circlePath(circles, circles[2]).map((entry) => entry.id)).toEqual(["community", "lcc"]);
+    expect(Array.from(circleFamily(circles, "lcc"))).toEqual(["lcc", "hedges"]);
+    expect(circleFamily(circles, "community").size).toBe(circles.length);
+  });
+
+  it("gives nobody rights over the circles within it", () => {
+    // Community has no members, and being within it changes no one's rights.
+    expect(managesCircle(circles, "lcc", "000000000005")).toBe(false);
+    expect(managesCircle(circles, "board", "000000000003")).toBe(false);
   });
 });

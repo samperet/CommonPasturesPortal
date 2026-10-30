@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modulesSchema } from "./store";
+import { circleUpdateSchema, modulesSchema } from "./store";
 
 const finances = { id: "finances", type: "finances", size: "full" };
 const messages = (value: unknown) => {
@@ -62,5 +62,35 @@ describe("modulesSchema", () => {
       "Only chosen pages keep their chosen order",
     ]);
     expect(messages([{ ...info, info: { ...circle, sort: "random" } }])).toHaveLength(1);
+  });
+});
+
+describe("task buttons and parents", () => {
+  const button = {
+    id: "taskbutton-a1",
+    type: "taskbutton",
+    size: "full",
+    taskButton: {
+      label: "Report a broken light",
+      title: "Broken light",
+      assignee: { circleId: "facilities", position: "Trash Master" },
+    },
+  };
+  it("a Task button says what it makes and for whom; several can be on a page", () => {
+    expect(modulesSchema.safeParse([button, { ...button, id: "taskbutton-b2" }]).success).toBe(
+      true
+    );
+    expect(modulesSchema.safeParse([{ ...button, taskButton: undefined }]).success).toBe(false);
+    const group = {
+      ...button,
+      taskButton: { ...button.taskButton, assignee: { circleId: "lcc", position: null } },
+    };
+    expect(modulesSchema.safeParse([group]).success).toBe(true);
+    expect(modulesSchema.safeParse([{ ...button, type: "text" }]).success).toBe(false);
+  });
+
+  it("a circle's parent can't be changed by an update", () => {
+    const parsed = circleUpdateSchema.safeParse({ name: "Hedges", parentId: "board" });
+    expect(parsed.success && "parentId" in parsed.data).toBe(false);
   });
 });

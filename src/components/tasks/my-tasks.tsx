@@ -4,14 +4,21 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ListChecks } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
-import { STATUS_LABELS, type Task } from "@/lib/tasks/shared";
+import { STATUS_LABELS, type TaskSummary } from "@/lib/tasks/shared";
 import { DueLabel, PriorityFlag, ProgressBar, STATUS_STYLES } from "@/components/tasks/task-bits";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/section-heading";
 
-type MyTask = Omit<Task, "activity" | "description"> & { circleId: string; circleName: string };
+type MyTask = Omit<TaskSummary, "commentCount" | "hasDescription"> & {
+  circleId: string;
+  circleName: string;
+};
 
-/** On the dashboard: the unfinished tasks you own, in any circle — shown only when there are some. */
+/**
+ * On the dashboard: the unfinished tasks you have — yours, or given to a role
+ * you hold — in any circle, shown only when there are some, with the way to
+ * all of them on the Tasks page.
+ */
 export function MyTasks() {
   const { data } = useQuery({
     queryKey: ["my-tasks"],
@@ -42,11 +49,20 @@ export function MyTasks() {
             <PriorityFlag task={task} />
             <DueLabel task={task} />
             <ProgressBar task={task} />
-            <span className="text-xs text-muted">{task.circleName}</span>
+            <span className="text-xs text-muted">
+              {task.ownerRole?.position ? `as ${task.ownerRole.position} · ` : ""}
+              {task.circleName}
+            </span>
           </li>
         ))}
       </ul>
-      {tasks.length > 6 ? <p className="text-xs text-muted">And {tasks.length - 6} more.</p> : null}
+      <Link
+        href="/tasks?whose=mine"
+        className="w-fit text-sm font-medium text-secondary-foreground hover:underline"
+        data-my-tasks-all
+      >
+        {tasks.length > 6 ? `All ${tasks.length} of your tasks` : "See all your tasks"}
+      </Link>
     </section>
   );
 }

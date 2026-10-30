@@ -10,6 +10,7 @@ import { listRecommendations } from "@/lib/resources/store";
 import { categorySlug } from "@/lib/resources/slug";
 import { listSkills } from "@/lib/skills/store";
 import { listTasks } from "@/lib/tasks/store";
+import { roleLabel, taskHolders } from "@/lib/tasks/roles";
 import { readPages } from "@/lib/wiki/store";
 import { visiblePages, type WikiViewer } from "@/lib/wiki/access";
 import { occurrences, searchTerms, snippetFor } from "@/lib/search";
@@ -311,19 +312,30 @@ export async function searchSite(
     body: proposal.body || undefined,
   }));
 
+  // Who has each task: its owner, or its role and whoever holds it (`lib/tasks/roles.ts`).
+  const nameOf = (personId: string) =>
+    directory.people.find((person) => person.id === personId)?.displayName ?? null;
+  const ownerOf = (task: (typeof tasks)[number]["tasks"][number]) => {
+    const holders = taskHolders(task, circles, nameOf)
+      .map((holder) => holder.name)
+      .join(", ");
+    return task.ownerRole
+      ? `${roleLabel(task.ownerRole, circles)}${holders ? ` (${holders})` : ""}`
+      : holders;
+  };
   const taskResults = tasks.flatMap(({ circle, tasks: list }) =>
     collect(list, terms, (task) => ({
       fields: [
         [task.title, 20],
         [task.description, 2],
-        [task.ownerName ?? "", 5],
+        [ownerOf(task), 5],
       ],
       result: {
         title: task.title,
         href: `/circles/${circle.id}/tasks/${task.number}`,
         meta: [
           `${circle.name} task #${task.number}`,
-          task.status === "done" ? "done" : task.ownerName,
+          task.status === "done" ? "done" : ownerOf(task),
         ]
           .filter(Boolean)
           .join(" · "),

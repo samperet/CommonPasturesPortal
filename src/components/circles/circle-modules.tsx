@@ -228,6 +228,7 @@ export function ModuleEditor({
   modules: layout,
   sections,
   safetyCrew,
+  community = false,
   onChange,
   onSettings,
 }: {
@@ -235,6 +236,8 @@ export function ModuleEditor({
   sections: ModuleViews;
   /** The Safety Crew's page: its Alert is built in, so nobody removes it. */
   safetyCrew: boolean;
+  /** Community's page: its list of the circles within it is built in. */
+  community?: boolean;
   onChange: (modules: CircleModule[]) => void;
   onSettings: (module: CircleModule) => void;
 }) {
@@ -335,7 +338,8 @@ export function ModuleEditor({
             module.type === "text" ||
             module.type === "tasks" ||
             module.type === "log" ||
-            module.type === "finances" ? (
+            module.type === "finances" ||
+            module.type === "taskbutton" ? (
               <button
                 type="button"
                 className={cn(control, "w-auto gap-1.5 px-2.5 text-sm")}
@@ -347,6 +351,10 @@ export function ModuleEditor({
             ) : null}
             {module.type === "alert" && safetyCrew ? (
               <span className="text-xs text-muted">Built in: the Safety Crew&apos;s alert.</span>
+            ) : module.type === "subgroups" && community ? (
+              <span className="text-xs text-muted">
+                Built in: every circle is within Community.
+              </span>
             ) : module.type === "alert" && !admin ? (
               <span className="text-xs text-muted">Only an admin can remove it.</span>
             ) : (

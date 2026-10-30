@@ -24,6 +24,8 @@ import {
   TasksSettings,
   LogSettings,
   TextSettings,
+  TaskButtonSettings,
+  describeTaskButton,
   describeForum,
   describeText,
   describeLog,
@@ -41,12 +43,13 @@ import { AlertModule } from "@/components/alerts/alert-module";
 import { LogModule } from "@/components/circles/log-module";
 import { TextModule } from "@/components/circles/text-module";
 import { TasksModule } from "@/components/tasks/task-board";
+import { TaskButtonModule } from "@/components/tasks/task-button";
 import { INFO_SORT_LABELS, type CircleModule, moduleTitle, modulesFor } from "@/lib/circles/layout";
 import { NameCombobox, NameOption } from "@/components/auth/name-combobox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BOARD_ID, isCommunity, sitsOnBoard, isSafetyCrew } from "@/lib/circles/ids";
-import { managesCircle, parentOf, subgroupsOf } from "@/lib/circles/tiers";
+import { circlePath, managesCircle, parentOf, subgroupsOf } from "@/lib/circles/tiers";
 import { SubgroupsModule } from "@/components/circles/subgroups-module";
 import Link from "next/link";
 import { useDirectoryQuery } from "@/components/directory/use-directory";
@@ -258,6 +261,13 @@ export function CircleDetailClient({ id }: { id: string }) {
             <TextModule circleId={circle.id} module={module} title={title} canEdit={canManage} />
           ),
         };
+      case "taskbutton":
+        return {
+          title,
+          icon: icon(module),
+          detail: describeTaskButton(module, data.circles),
+          content: <TaskButtonModule circleId={circle.id} module={module} title={title} />,
+        };
       case "subgroups":
         return {
           title,
@@ -418,12 +428,25 @@ export function CircleDetailClient({ id }: { id: string }) {
             />
           ) : (
             <>
-              {parent ? (
-                <p className="text-sm text-muted" data-breadcrumb>
-                  <Link href={`/circles/${parent.id}`} className="hover:underline">
-                    {parent.name}
-                  </Link>{" "}
-                  › sub group
+              {/* Where it sits: within Community (every circle is), and within its circle for a sub group. */}
+              {!community ? (
+                <p
+                  className="flex flex-wrap items-center gap-x-1 text-sm text-muted"
+                  data-breadcrumb
+                >
+                  {circlePath(data.circles, circle)
+                    .slice(0, -1)
+                    .map((above) => (
+                      <span key={above.id} className="inline-flex items-center gap-1">
+                        <Link href={`/circles/${above.id}`} className="hover:underline">
+                          {above.name}
+                        </Link>
+                        <span aria-hidden>›</span>
+                      </span>
+                    ))}
+                  <span>
+                    {parent ? "sub group" : circle.kind === "club" ? "social club" : "circle"}
+                  </span>
                 </p>
               ) : null}
               <h1 className="text-2xl font-semibold text-foreground">{circle.name}</h1>
@@ -449,6 +472,7 @@ export function CircleDetailClient({ id }: { id: string }) {
               modules={editing}
               sections={sectionsOf(editing)}
               safetyCrew={isSafetyCrew(circle)}
+              community={isCommunity(circle.id)}
               onChange={setPageDraft}
               onSettings={(module) => setDialog({ kind: "settings", module })}
             />
@@ -466,7 +490,9 @@ export function CircleDetailClient({ id }: { id: string }) {
               onAdd={(module) => {
                 setPageDraft([...editing, module]);
                 setDialog(
-                  module.type === "information" || module.type === "text"
+                  module.type === "information" ||
+                    module.type === "text" ||
+                    module.type === "taskbutton"
                     ? { kind: "settings", module }
                     : null
                 );
@@ -476,6 +502,21 @@ export function CircleDetailClient({ id }: { id: string }) {
             <TextSettings
               module={dialog.module}
               onClose={() => setDialog(null)}
+              onSave={(module) => {
+                setPageDraft(editing.map((entry) => (entry.id === module.id ? module : entry)));
+                setDialog(null);
+              }}
+            />
+          ) : dialog?.kind === "settings" && dialog.module.type === "taskbutton" ? (
+            <TaskButtonSettings
+              module={dialog.module}
+              circle={circle}
+              onClose={() => {
+                // A button never set up (just added) goes again.
+                const unset = !dialog.module.taskButton;
+                if (unset) setPageDraft(editing.filter((entry) => entry.id !== dialog.module.id));
+                setDialog(null);
+              }}
               onSave={(module) => {
                 setPageDraft(editing.map((entry) => (entry.id === module.id ? module : entry)));
                 setDialog(null);

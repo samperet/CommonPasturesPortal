@@ -93,8 +93,8 @@ function CircleCard({
   );
 }
 
-/** The Community circle — everyone at CVC — across the top of the page at double width. */
-function CommunityCard({ circle }: { circle: Circle }) {
+/** The Community circle — everyone at CVC, so every circle is within it — across the top of the page. */
+function CommunityCard({ circle, count }: { circle: Circle; count: number }) {
   return (
     <Link
       href={`/circles/${circle.id}`}
@@ -104,7 +104,9 @@ function CommunityCard({ circle }: { circle: Circle }) {
         <CircleIcon circle={circle} size={88} />
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold text-foreground">{circle.name}</h2>
-          <p className="text-xs font-medium text-muted">Everyone at CVC</p>
+          <p className="text-xs font-medium text-muted">
+            Everyone at CVC · the {count} circles and clubs below are all within it
+          </p>
           {circle.description ? (
             <p className="mt-1 text-sm text-foreground-light">{circle.description}</p>
           ) : null}
@@ -186,27 +188,36 @@ export function CirclesClient({ header }: { header: React.ReactNode }) {
         ) : null}
         {community ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <CommunityCard circle={community} />
+            <CommunityCard circle={community} count={others.length} />
           </div>
         ) : null}
-        <section className="mt-2 flex flex-col gap-3" aria-labelledby="circles-heading">
-          <div>
-            <h2 id="circles-heading" className="text-lg font-semibold text-foreground">
-              Circles
-            </h2>
-          </div>
-          <CircleGrid shown={circles} circles={data.circles} people={people} />
-        </section>
-        {clubs.length ? (
-          <section className="mt-2 flex flex-col gap-3" aria-labelledby="clubs-heading">
+        {/* Every circle and club is within Community: shown set in beneath it. */}
+        <div
+          className={cn(
+            "flex flex-col gap-4",
+            community && "ml-3 border-l-2 border-primary/30 pl-4 md:ml-6 md:pl-6"
+          )}
+          data-within-community
+        >
+          <section className="mt-2 flex flex-col gap-3" aria-labelledby="circles-heading">
             <div>
-              <h2 id="clubs-heading" className="text-lg font-semibold text-foreground">
-                Social Clubs
+              <h2 id="circles-heading" className="text-lg font-semibold text-foreground">
+                Circles
               </h2>
             </div>
-            <CircleGrid shown={clubs} circles={data.circles} people={people} />
+            <CircleGrid shown={circles} circles={data.circles} people={people} />
           </section>
-        ) : null}
+          {clubs.length ? (
+            <section className="mt-2 flex flex-col gap-3" aria-labelledby="clubs-heading">
+              <div>
+                <h2 id="clubs-heading" className="text-lg font-semibold text-foreground">
+                  Social Clubs
+                </h2>
+              </div>
+              <CircleGrid shown={clubs} circles={data.circles} people={people} />
+            </section>
+          ) : null}
+        </div>
       </div>
     </>
   );

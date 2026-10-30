@@ -26,6 +26,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { buildTree, childrenOf, descendantsOf, ancestorsOf, type TreeNode } from "@/lib/wiki/tree";
+import { subgroupsOf, topLevel } from "@/lib/circles/tiers";
 import type { WikiPageSummary } from "@/lib/wiki/store";
 import type { Circle } from "@/lib/circles/types";
 import { isCommunity } from "@/lib/circles/ids";
@@ -35,7 +36,8 @@ import { cn } from "@/lib/utils";
  * The documents sidebar (as in Outline): your starred and recent documents,
  * your drafts, then every circle that has pages, each folding out to its
  * page tree — pages inside pages, the one you're reading marked and its
- * parents unfolded. For the circles whose pages you keep (the server
+ * parents unfolded — with its sub groups nested inside it, each folding out
+ * the same way. Documents sit on white, the circles' headings around them. For the circles whose pages you keep (the server
  * decides; `keepers` says which), a row's **+** starts a page inside it,
  * **Move to…** chooses a new place, and a row can be dragged: onto the top
  * or bottom edge of another to go before or after it, onto its middle to go
@@ -52,6 +54,8 @@ type Zone = "before" | "after" | "inside";
 type Move = { slug: string; parentId: string | null; after: string | null };
 
 const labelClass = "px-1 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wide text-muted";
+/** Documents are listed on white, set apart from the circles' headings. */
+const panelClass = "flex flex-col rounded-lg border border-border bg-white p-1 shadow-soft";
 const entryClass =
   "flex items-center gap-2 rounded-md px-1.5 py-1 text-sm text-foreground/80 hover:bg-accent hover:text-foreground";
 const smallButton =
@@ -89,26 +93,41 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const canArrange = (circleId: string) =>
     !!user?.isAdmin || keepers.some((keeper) => keeper.id === circleId);
 
-  // The circles with pages: Community first, then yours, then the rest, by name.
+  // The circles with pages (or with sub groups that have some): Community first, then yours,
+  // then the rest, by name — each sub group nested in its circle (`nested`).
+  const withPages = useMemo(() => new Set(published.map((page) => page.keeper)), [published]);
+  const nested = (circleId: string) =>
+    subgroupsOf(circles ?? [], circleId)
+      .filter((sub) => withPages.has(sub.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
   const sections = useMemo(() => {
-    const withPages = new Set(published.map((page) => page.keeper));
+    const all = circles ?? [];
     const inIt = (circle: Circle) =>
       !!user?.personId && circle.seats.some((seat) => seat.personId === user.personId);
-    return (circles ?? [])
-      .filter((circle) => withPages.has(circle.id))
+    return topLevel(all)
+      .filter(
+        (circle) =>
+          withPages.has(circle.id) ||
+          subgroupsOf(all, circle.id).some((sub) => withPages.has(sub.id))
+      )
       .sort(
         (a, b) =>
           Number(isCommunity(b.id)) - Number(isCommunity(a.id)) ||
           Number(inIt(b)) - Number(inIt(a)) ||
           a.name.localeCompare(b.name)
       );
-  }, [circles, published, user?.personId]);
+  }, [circles, withPages, user?.personId]);
 
   // Which circles are unfolded (remembered in this browser); the current page's always is.
   const [toggledCircles, setToggledCircles] = useState<Record<string, boolean>>({});
   useEffect(() => setToggledCircles(readOpenCircles()), []);
+  // Unfolded by default: the circle of the page you're reading (and, for a sub group's page, its circle).
+  const readingIn = (circleId: string) =>
+    !!current &&
+    (current.keeper === circleId ||
+      subgroupsOf(circles ?? [], circleId).some((sub) => sub.id === current.keeper));
   const circleOpen = (circleId: string) =>
-    toggledCircles[circleId] ?? (current?.keeper === circleId || sections.length === 1);
+    toggledCircles[circleId] ?? (readingIn(circleId) || sections.length === 1);
   const toggleCircle = (circleId: string) =>
     setToggledCircles((state) => {
       const next = { ...state, [circleId]: !circleOpen(circleId) };
@@ -322,6 +341,69 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
     );
   };
 
+  /** A circle's heading, its pages on white, and its sub groups (that have pages) nested inside it. */
+  const section = (circle: Circle, depth: number): ReactNode => {
+    const open = circleOpen(circle.id);
+    const arrangeable = canArrange(circle.id);
+    const count = published.filter((page) => page.keeper === circle.id).length;
+    const over = drop?.id === `circle:${circle.id}`;
+    const subs = depth === 0 ? nested(circle.id) : [];
+    const tree = buildTree(published, circle.id);
+    return (
+      <div
+        key={circle.id}
+        data-docs-circle={circle.id}
+        data-open={open ? "1" : "0"}
+        data-depth={depth}
+        className={cn(depth > 0 && "ml-2 border-l-2 border-border pl-1.5")}
+      >
+        <button
+          type="button"
+          onClick={() => toggleCircle(circle.id)}
+          aria-expanded={open}
+          className={cn(
+            "flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-left font-medium text-foreground hover:bg-accent",
+            over && "ring-2 ring-inset ring-primary"
+          )}
+          onDragOver={(event) => {
+            const moving = dragging.current;
+            if (!moving || moving.keeper !== circle.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            if (!over) setDrop({ id: `circle:${circle.id}`, zone: "inside" });
+          }}
+          onDragLeave={() => setDrop((state) => (over ? null : state))}
+          onDrop={(event) => {
+            event.preventDefault();
+            const moving = dragging.current;
+            endDrag();
+            if (moving && moving.keeper === circle.id) dropOnCircle(moving, circle.id);
+          }}
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 text-muted transition", !open && "-rotate-90")}
+            aria-hidden
+          />
+          <CircleIcon circle={circle} size={depth ? 16 : 18} className="shrink-0 rounded-full" />
+          <span className="truncate">{circle.name}</span>
+          <span className="ml-auto pl-2 text-xs font-normal text-muted">
+            {subs.length ? `${count} · ${subs.length} sub` : count}
+          </span>
+        </button>
+        {open ? (
+          <div className="flex flex-col gap-1 pb-1">
+            {tree.length ? (
+              <ul className={panelClass} data-docs-pages={circle.id}>
+                {rows(tree, 0, `circle:${circle.id}`, arrangeable)}
+              </ul>
+            ) : null}
+            {subs.map((sub) => section(sub, depth + 1))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <nav aria-label="Documents" className="flex flex-col gap-2 text-sm" data-docs-tree>
       <div className="flex items-center gap-1">
@@ -352,12 +434,17 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
       </div>
 
-      <MyDocumentsLinks linkClass={entryClass} labelClass={labelClass} onChoose={choose} />
+      <MyDocumentsLinks
+        linkClass={entryClass}
+        labelClass={labelClass}
+        onChoose={choose}
+        listClass={panelClass}
+      />
 
       {drafts.length ? (
         <section data-docs-drafts>
           <p className={labelClass}>Drafts</p>
-          <ul>
+          <ul className={panelClass}>
             {drafts.map((page) => (
               <li key={page.id}>
                 <Link
@@ -381,52 +468,7 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
       <section data-docs-circles>
         <p className={labelClass}>Circles</p>
         {sections.length ? null : <p className="px-1.5 py-1 text-xs text-muted">No pages yet.</p>}
-        {sections.map((circle) => {
-          const open = circleOpen(circle.id);
-          const arrangeable = canArrange(circle.id);
-          const count = published.filter((page) => page.keeper === circle.id).length;
-          const over = drop?.id === `circle:${circle.id}`;
-          return (
-            <div key={circle.id} data-docs-circle={circle.id} data-open={open ? "1" : "0"}>
-              <button
-                type="button"
-                onClick={() => toggleCircle(circle.id)}
-                aria-expanded={open}
-                className={cn(
-                  "flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-left font-medium text-foreground hover:bg-accent",
-                  over && "ring-2 ring-inset ring-primary"
-                )}
-                onDragOver={(event) => {
-                  const moving = dragging.current;
-                  if (!moving || moving.keeper !== circle.id) return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                  if (!over) setDrop({ id: `circle:${circle.id}`, zone: "inside" });
-                }}
-                onDragLeave={() => setDrop((state) => (over ? null : state))}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const moving = dragging.current;
-                  endDrag();
-                  if (moving && moving.keeper === circle.id) dropOnCircle(moving, circle.id);
-                }}
-              >
-                <ChevronDown
-                  className={cn("h-4 w-4 shrink-0 text-muted transition", !open && "-rotate-90")}
-                  aria-hidden
-                />
-                <CircleIcon circle={circle} size={18} className="shrink-0 rounded-full" />
-                <span className="truncate">{circle.name}</span>
-                <span className="ml-auto pl-2 text-xs font-normal text-muted">{count}</span>
-              </button>
-              {open ? (
-                <ul className="flex flex-col pb-1">
-                  {rows(buildTree(published, circle.id), 0, `circle:${circle.id}`, arrangeable)}
-                </ul>
-              ) : null}
-            </div>
-          );
-        })}
+        {sections.map((circle) => section(circle, 0))}
       </section>
 
       <Link href="/documents/trash" onClick={choose} className={cn(entryClass, "text-muted")}>

@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Network, Plus } from "lucide-react";
 import type { Circle } from "@/lib/circles/types";
-import { subgroupsOf } from "@/lib/circles/tiers";
+import { circlesWithin, subgroupsOf } from "@/lib/circles/tiers";
+import { isCommunity } from "@/lib/circles/ids";
 import { useSession } from "@/lib/auth/client";
 import { CircleIcon } from "@/components/circles/circle-icon";
 import { NewCircleForm } from "@/components/circles/new-circle-form";
@@ -17,7 +18,9 @@ import { SectionHeading } from "@/components/ui/section-heading";
 /**
  * A circle's Sub groups module: the smaller groups within it — each a circle
  * of its own, with its own members, page, and icon — and, for those who
- * manage the circle, **New sub group**.
+ * manage the circle, **New sub group**. On Community's page (built in) it
+ * lists every circle, since every circle is within Community; circles are
+ * started from the Circles page, not here.
  */
 export function SubgroupsModule({
   circle,
@@ -32,7 +35,8 @@ export function SubgroupsModule({
 }) {
   const { user } = useSession();
   const [starting, setStarting] = useState(false);
-  const subgroups = subgroupsOf(circles, circle.id).sort((a, b) => a.name.localeCompare(b.name));
+  const community = isCommunity(circle.id);
+  const subgroups = circlesWithin(circles, circle.id);
   return (
     <Card className="flex flex-col gap-4" data-subgroups-module>
       <SectionHeading icon={Network} count={subgroups.length || null} toggle={<ModuleToggle />}>
@@ -61,6 +65,11 @@ export function SubgroupsModule({
                     <span className="block text-xs text-muted">
                       {members} {members === 1 ? "member" : "members"}
                       {sub.joinPolicy === "open" ? " · anyone can join" : ""}
+                      {community && subgroupsOf(circles, sub.id).length
+                        ? ` · ${subgroupsOf(circles, sub.id).length} sub ${
+                            subgroupsOf(circles, sub.id).length === 1 ? "group" : "groups"
+                          }`
+                        : ""}
                     </span>
                     {sub.description ? (
                       <span className="mt-0.5 line-clamp-2 block text-sm text-foreground-light">
@@ -75,10 +84,12 @@ export function SubgroupsModule({
         </ul>
       ) : (
         <p className="text-sm text-muted">
-          No sub groups yet{canManage ? " — start one for a team within the circle." : "."}
+          {community
+            ? "No circles yet."
+            : `No sub groups yet${canManage ? " — start one for a team within the circle." : "."}`}
         </p>
       )}
-      {canManage ? (
+      {canManage && !community ? (
         starting ? (
           <NewCircleForm parent={circle} onCancel={() => setStarting(false)} />
         ) : (

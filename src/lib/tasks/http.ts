@@ -6,6 +6,8 @@ import { problem } from "@/lib/http";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import type { Failure } from "./store";
 import type { Failure as CommentFailure } from "./comments";
+import type { Task } from "./shared";
+import { findRole, roleLabel, taskHolders, type TaskRole } from "./roles";
 
 /**
  * Who may see and change a circle's tasks. Every signed-in resident sees
@@ -13,8 +15,9 @@ import type { Failure as CommentFailure } from "./comments";
  * documents: its members, the Board, and admins (anyone, for the Community
  * circle) — add, change, and delete any task. A circle whose Tasks module
  * lets any resident add tasks also lets each resident change and delete
- * the tasks they added (`ownTask`). A task's owner can move it along (status
- * and checklist), and anyone can take on a task nobody has yet.
+ * the tasks they added (`ownTask`). A task's owner — or, for a task given to
+ * a role, whoever holds the role — can move it along (status and checklist),
+ * and anyone can take on a task nobody has yet.
  */
 export async function tasksContext(circleId: string, { write = false } = {}) {
   const ctx = await circleContext({ circleId });
@@ -42,6 +45,28 @@ export async function tasksContext(circleId: string, { write = false } = {}) {
 /** A person's name from the directory, if they're in it. */
 export const personName = (directory: DirectoryDocument, personId: string | null) =>
   personId ? directory.people.find((person) => person.id === personId)?.displayName ?? null : null;
+
+type Owned = Pick<Task, "status" | "ownerId" | "ownerName" | "ownerRole">;
+
+/** Who has a task now: its owner, or whoever holds its role (named as in the directory). */
+export const holdersOf = (task: Owned, directory: DirectoryDocument) =>
+  taskHolders(task, directory.circles, (personId) => personName(directory, personId));
+
+/** A task as served: with who has it now. */
+export const served = <T extends Owned>(task: T, directory: DirectoryDocument) => ({
+  ...task,
+  holders: holdersOf(task, directory),
+});
+
+/**
+ * A role a task is being given to, as its circle names it now, with its
+ * label ("Trash Master", or "Trash Master (Facilities)" from another circle
+ * than `hereId`) — or null when no seat in that circle has that role.
+ */
+export function namedRole(directory: DirectoryDocument, role: TaskRole, hereId: string) {
+  const found = findRole(directory.circles, role);
+  return found ? { role: found, label: roleLabel(found, directory.circles, hereId) } : null;
+}
 
 export const parseNumber = (value: string) => (/^\d{1,6}$/.test(value) ? Number(value) : null);
 

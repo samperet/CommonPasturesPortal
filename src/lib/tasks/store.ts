@@ -13,14 +13,18 @@ import {
   type Task,
   type TaskPerson,
 } from "./shared";
+import { assigneePhrase, sameAssignee, type Holder, type TaskRole } from "./roles";
 
 /**
  * Circle tasks: each circle's in one document (`tasks/<circleId>.json`),
  * numbered in the order they're added. A task keeps a short log of what's
- * happened to it (who moved it along, who took it on). A task can repeat
- * (weekly, monthly, every 3 months, yearly): when it's done, the next one is
- * made at once — the same, not started, checklist unticked, due a period
- * after it was due (the first such date not already past) — once.
+ * happened to it (who moved it along, who took it on). A task is for a
+ * person (`ownerId`) or a role (`ownerRole`, `roles.ts`), never both. A task
+ * can repeat (weekly, monthly, every 3 months, yearly): when it's done, the
+ * next one is made at once — the same, not started, checklist unticked, due
+ * a period after it was due (the first such date not already past) — once.
+ * A role's task, done, keeps who held the role then (`holderAtCompletion`);
+ * its next one is the role's again, for whoever holds it by then.
  */
 
 const MAX_TASKS = 1000;
@@ -34,6 +38,11 @@ const title = z
   .min(1, "Give the task a title")
   .max(160, "Keep the title to 160 characters");
 const description = z.string().max(10_000, "Keep the description to 10,000 characters");
+const roleSchema = z.object({
+  circleId: z.string().min(1).max(80),
+  /** Null: the whole group, everyone in the circle. */
+  position: z.string().trim().min(1, "Choose a role").max(40).nullable(),
+});
 const checklistItem = z.object({
   id: z.string().max(40).optional(),
   text: z.string().trim().min(1).max(200),
@@ -46,6 +55,8 @@ export const taskInputSchema = z.object({
   status: z.enum(TASK_STATUSES).default("todo"),
   priority: z.enum(TASK_PRIORITIES).default("normal"),
   ownerId: z.string().max(80).nullable().default(null),
+  /** Or a role (not with `ownerId`). */
+  ownerRole: roleSchema.nullable().default(null),
   dueDate: isoDate.nullable().default(null),
   checklist: z.array(checklistItem).max(MAX_CHECKLIST).default([]),
   repeat: z.enum(TASK_REPEATS).nullable().default(null),
@@ -59,6 +70,8 @@ export const taskUpdateSchema = z
     status: z.enum(TASK_STATUSES),
     priority: z.enum(TASK_PRIORITIES),
     ownerId: z.string().max(80).nullable(),
+    /** Give it to a role (null: to nobody); setting a person clears the role, and the other way round. */
+    ownerRole: roleSchema.nullable(),
     dueDate: isoDate.nullable(),
     checklist: z.array(checklistItem).max(MAX_CHECKLIST),
     repeat: z.enum(TASK_REPEATS).nullable(),
@@ -121,15 +134,25 @@ const withIds = (items: { id?: string; text: string; done: boolean }[]) =>
     done: item.done,
   }));
 
+/** "the Trash Master", or a group's name: how the log names a role. */
+const theRole = (role: TaskRole, label: string | null | undefined) =>
+  assigneePhrase(role, label ?? role.position ?? "group");
+
+/**
+ * Add a task. `ownerName` names its owner; for a role, `roleLabel` names the
+ * role (the route checks both against the directory first).
+ */
 export function createTask(
   circleId: string,
   author: TaskPerson,
   input: TaskInput,
-  ownerName: string | null
+  ownerName: string | null,
+  roleLabel: string | null = null
 ) {
   return mutate(circleId, (stored) => {
     if (stored.tasks.length >= MAX_TASKS) return "full";
     const now = new Date().toISOString();
+    const role: TaskRole | null = input.ownerRole && !input.ownerId ? input.ownerRole : null;
     let task: Task = {
       id: randomUUID(),
       number: stored.nextNumber,
@@ -139,6 +162,7 @@ export function createTask(
       priority: input.priority,
       ownerId: input.ownerId,
       ownerName: input.ownerId ? ownerName : null,
+      ...(role ? { ownerRole: role } : {}),
       dueDate: input.dueDate,
       checklist: withIds(input.checklist),
       createdAt: now,
@@ -151,7 +175,11 @@ export function createTask(
     task = log(
       task,
       author.name,
-      ownerName && input.ownerId ? `added this task, for ${ownerName}` : "added this task"
+      ownerName && input.ownerId
+        ? `added this task, for ${ownerName}`
+        : role
+          ? `added this task, for ${theRole(role, roleLabel)}`
+          : "added this task"
     );
     return {
       stored: { nextNumber: stored.nextNumber + 1, tasks: [...stored.tasks, task] },
@@ -161,13 +189,18 @@ export function createTask(
   });
 }
 
-/** The next of a repeating task: the same, not started, its checklist unticked, due a period on. */
+/**
+ * The next of a repeating task: the same, not started, its checklist
+ * unticked, due a period on — a role's again (whoever then holds it), not
+ * the person who held it this time.
+ */
 function nextOf(task: Task, number: number, by: string): Task {
   const now = new Date().toISOString();
   const repeat = task.repeat!;
   return log(
     {
       ...task,
+      ...(task.ownerRole ? { ownerId: null, ownerName: null } : {}),
       id: randomUUID(),
       number,
       status: "todo",
@@ -184,6 +217,16 @@ function nextOf(task: Task, number: number, by: string): Task {
   );
 }
 
+/** For a change to a task: who a new owner or role is, and who'd be kept as doing a role's task. */
+export interface TaskNames {
+  /** The new owner's name (`update.ownerId`). */
+  ownerName: string | null;
+  /** The new role's label (`update.ownerRole`). */
+  roleLabel?: string | null;
+  /** Who held a role's task when it's done (`roles.ts`: `holderAtCompletion`). */
+  completedBy?: (task: Task) => Holder | null;
+}
+
 /**
  * Change a task. `canEdit`: the circle's editors change anything; others
  * (the task's owner, say) only what `allowed` lets them.
@@ -193,9 +236,10 @@ export function updateTask(
   number: number,
   actor: { name: string },
   update: TaskUpdate,
-  ownerName: string | null,
+  names: TaskNames,
   allowed: (task: Task, update: TaskUpdate) => boolean
 ) {
+  const { ownerName } = names;
   return mutate(circleId, (stored) => {
     const before = stored.tasks.find((task) => task.number === number);
     if (!before) return "not_found";
@@ -215,14 +259,24 @@ export function updateTask(
       task.status = update.status;
       task.completedAt = update.status === "done" ? new Date().toISOString() : null;
       say(`moved this to ${STATUS_LABELS[update.status]}`);
+      // A role's task: done, it keeps who held the role; opened again, it's the role's again.
+      if (task.ownerRole) {
+        const holder = update.status === "done" ? names.completedBy?.(task) ?? null : null;
+        task.ownerId = holder?.personId ?? null;
+        task.ownerName = holder?.name ?? null;
+      }
     }
     if (update.priority && update.priority !== task.priority) {
       task.priority = update.priority;
       say(`set the priority to ${PRIORITY_LABELS[update.priority]}`);
     }
-    if (update.ownerId !== undefined && update.ownerId !== task.ownerId) {
+    if (
+      update.ownerId !== undefined &&
+      (update.ownerId !== task.ownerId || (update.ownerId && task.ownerRole))
+    ) {
       task.ownerId = update.ownerId;
       task.ownerName = update.ownerId ? ownerName : null;
+      task.ownerRole = null;
       say(
         update.ownerId
           ? ownerName === actor.name
@@ -230,6 +284,17 @@ export function updateTask(
             : `gave this to ${ownerName}`
           : "left this unassigned"
       );
+    } else if (update.ownerRole !== undefined) {
+      const role = update.ownerRole;
+      const same = sameAssignee(role, task.ownerRole);
+      if (!same && (role || task.ownerRole)) {
+        task.ownerRole = role;
+        if (task.status !== "done" || !role) {
+          task.ownerId = null;
+          task.ownerName = null;
+        }
+        say(role ? `gave this to ${theRole(role, names.roleLabel)}` : "left this unassigned");
+      }
     }
     if (update.dueDate !== undefined && update.dueDate !== task.dueDate) {
       task.dueDate = update.dueDate;

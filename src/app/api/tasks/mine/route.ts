@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { circleContext } from "@/lib/circles/access";
 import { featureEnabled } from "@/lib/circles/features";
 import { listTasks } from "@/lib/tasks/store";
+import { served } from "@/lib/tasks/http";
+import { isHolder } from "@/lib/tasks/shared";
 
 export const dynamic = "force-dynamic";
 
-/** The unfinished tasks you own, in every circle with tasks turned on — soonest due first. */
+/** The unfinished tasks you have (yours, or your roles'), in every circle with tasks turned on — soonest due first. */
 export async function GET() {
   const ctx = await circleContext();
   if ("error" in ctx) return ctx.error;
@@ -13,12 +15,13 @@ export async function GET() {
   const lists = await Promise.all(
     circles.map(async (circle) =>
       (await listTasks(circle.id))
-        .filter((task) => task.ownerId === ctx.personId && task.status !== "done")
+        .filter((task) => task.status !== "done")
         .map(({ activity: _activity, description: _description, ...task }) => ({
-          ...task,
+          ...served(task, ctx.directory),
           circleId: circle.id,
           circleName: circle.name,
         }))
+        .filter((task) => isHolder(task, ctx.personId))
     )
   );
   const tasks = lists

@@ -1,5 +1,6 @@
 import { isCommunity, isSafetyCrew } from "./ids";
 import type { TaskView } from "@/lib/tasks/shared";
+import type { TaskRole } from "@/lib/tasks/roles";
 
 /**
  * How a circle's page is laid out: its modules in order, each with a size
@@ -20,6 +21,7 @@ export const MODULE_TYPES = [
   "text",
   "subgroups",
   "alert",
+  "taskbutton",
 ] as const;
 export type ModuleType = (typeof MODULE_TYPES)[number];
 
@@ -123,7 +125,23 @@ export const MODULE_NAMES: Record<ModuleType, string> = {
   text: "Custom Text",
   subgroups: "Sub groups",
   alert: "Alert",
+  taskbutton: "Task button",
 };
+
+/**
+ * A Task button module's setting: one press, by any resident, makes a task
+ * — `title`, with what they add as its description — for a role or a whole
+ * group (`assignee`; `lib/tasks/roles.ts`), on the board of the circle that
+ * role or group is in. Requests like "Report a broken light".
+ */
+export interface TaskButton {
+  /** What the button says ("Report a broken light"). */
+  label: string;
+  /** The task it makes ("Broken light"). */
+  title: string;
+  /** Who the task is for: a role, or a whole group (its circle keeps the task). */
+  assignee: TaskRole;
+}
 
 /** Which pages a Filtered Documents module shows: chosen ones (in order), all of a circle's, a circle's proposals waiting for consent, or the most recently edited (of a circle, or the whole wiki). */
 export type InfoFilter =
@@ -191,6 +209,8 @@ export interface CircleModule {
   finances?: { view: FinanceViewers };
   /** A Custom Text module's words, as Markdown (the wiki's formatting), and its background (unset: white). */
   text?: { body: string; background?: TextBackground };
+  /** A Task button module's button and the task it makes. */
+  taskButton?: TaskButton;
 }
 
 /** The background colours a Custom Text module can have: soft tints, so its words stay easy to read. */
@@ -214,8 +234,8 @@ export const TEXT_BACKGROUND_STYLES: Record<TextBackground, { label: string; col
   blue: { label: "Blue", color: "#e5f0fc" },
 };
 
-/** Custom Text, Filtered Documents and Tasks modules (each its own view) can appear any number of times; the others once. */
-export const REPEATABLE_MODULES: ModuleType[] = ["information", "text", "tasks"];
+/** Custom Text, Filtered Documents, Tasks (each its own view) and Task button modules can appear any number of times; the others once. */
+export const REPEATABLE_MODULES: ModuleType[] = ["information", "text", "tasks", "taskbutton"];
 export const MAX_TEXT_MODULE = 20_000;
 
 export const MAX_MODULES = 20;
@@ -247,6 +267,12 @@ export function modulesFor(
     ? // A module of a kind that's gone (Meetings, now meeting notes are pages) is left out.
       circle.modules.filter((module) => (MODULE_TYPES as readonly string[]).includes(module.type))
     : derivedModulesFor(circle, hasSchedule);
+  // Community's page always lists the circles within it (every circle is), saved there or not.
+  if (isCommunity(circle.id) && !modules.some((module) => module.type === "subgroups"))
+    return [
+      ...modules,
+      { id: "circles-within", type: "subgroups", size: "full", title: "Circles within Community" },
+    ];
   // The Safety Crew's page always ends with its Alert, whether or not it was ever saved there.
   if (isSafetyCrew(circle) && !modules.some((module) => module.type === "alert"))
     return [

@@ -62,6 +62,7 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 | `src/lib/mcp/` | The MCP server for residents' AI assistants (`server.ts`: JSON-RPC methods, read-only tools over pages, documents and search, and write tools for keys that can write, pure with a `McpSource`; `writes.ts`: the `McpWriter` behind the write tools, the app's own stores, rules and side effects as the key's owner; `store.ts`: keys, hashed, with their `scope`, made on the AI assistants page `/mcp`); the route is `api/mcp` |
 | `src/lib/outline/` | Importing an Outline wiki (admins, `/admin/outline`): `client.ts` (its API, `OUTLINE_URL`/`OUTLINE_API_TOKEN`), `markdown.ts` (Outline's Markdown → CVC's: highlights, notices, mentions, links, attachments), `import.ts` (collections → circles, documents → nested pages via `importPages`, comments via `importComments`, images and files kept here; batches, re-runnable, state in `outline/import.json`); `/doc/…` and `/collection/…` send old Outline links to the right page |
 | `src/lib/cars/` | Car registration (the Directory's Cars tab, `components/directory/cars.tsx`): `shared.ts` (the `Car`, `parseCarRows` for a pasted spreadsheet), `store.ts` (`cars/cars.json`, plates unique), `access.ts` (your own unit's cars; the Board Secretary and admins any, and only they import, through `api/cars/import` — the tab has no import button) |
+| `src/lib/tasks/` | Circle tasks (`tasks/<circleId>.json`): `store.ts` (create, update, repeat: the next occurrence made when one's done), `http.ts` (`tasksContext`, `served` adds `holders`), `roles.ts` (a task given to a role — a seat position — or a whole group, `ownerRole`; `taskHolders` is who has it now, `holderAtCompletion` who's kept once it's done). Every circle's tasks: `GET /api/tasks` and the `/tasks` page (`components/tasks/all-tasks.tsx`); the Task button module presses `api/circles/<id>/task-button` |
 | `src/lib/finances/` | A circle's Finances module: expenses in whole cents (`parseMoney`/`formatMoney` in `shared.ts`), budgets, receipts, the CSV export; who can see it is the module's setting (`access.ts`) |
 
 ## Conventions that matter
@@ -79,7 +80,9 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
   the client what it may do (`canEdit`, `canAdd`, …) and components only hide or show controls.
 - **Admins** are `ADMIN_PERSON_IDS` and those added on Admin settings (`isAdmin`); **the Board** can manage every circle
   (`canManageCircle`, `sitsOnBoard`), and a circle's members its **sub groups** (`managesCircle` in
-  `lib/circles/tiers.ts`, safe for the browser); **Community** is everyone and has no members.
+  `lib/circles/tiers.ts`, safe for the browser); **Community** is everyone and has no members. Every
+  circle is *shown* within Community (`circleTree`, `circlePath`), but no circle is stored as
+  Community's and nobody gains rights from it — never make rights pass down from a parent.
 - **React Query**: one query per resource with a small factory (`directoryQuery`, `wikiPagesQuery`,
   `tasksQuery`…). Mutations invalidate by key prefix; `["directory"]` is the
   people-and-circles document most pages read — use `useDirectory()`/`useCircles()`.

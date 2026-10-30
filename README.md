@@ -529,7 +529,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
 - **The sidebar and the page tree** – beside Documents and every page, a sidebar (as in Outline)
   lists your **Starred** and **Recent** documents, your **Drafts**, and every circle that has pages,
   each folding out to its tree: pages inside pages (`parentId`), in their order, the page you're
-  reading marked with its parents unfolded. On a wide screen it stays in view and **[** hides it,
+  reading marked with its parents unfolded, each circle's sub groups nested inside it; the documents
+  sit on white panels, the circles' headings around them. On a wide screen it stays in view and **[** hides it,
   **]** brings it back (remembered in the browser); on a phone a **Pages** button slides it in.
   Over a page's title a trail reads circle › parent › …, and at the end of the page **Pages
   inside** lists the pages under it. For the circles whose pages you keep (the Board and admins,
@@ -785,12 +786,14 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   on or off (by adding or removing its Tasks modules under **Edit**). A circle can have **several
   Tasks modules, each its own view**: its **Settings** give it a title and say which tasks it
   shows — _Open_, _Done_ or _All_; everyone's, each reader's own, nobody's yet, or one member's;
-  due any time, overdue, or within 7 or 30 days (overdue included); high priority only — say an
+  due any time, overdue, or within 7 or 30 days (overdue included); high priority only; repeating
+  only — say an
   "Overdue" list beside the usual one, or "Done lately". They also say **who can add tasks** (for
   all the circle's task lists): the circle's members (and the Board and admins; the
   default) or **any resident** — who can then also change and delete the tasks they added. A task has a title, Markdown details
   (wiki and document links work), a status (_To do_, _In progress_, _Blocked_, _Done_), an owner
-  (anyone in the directory — the circle's members listed first), a due date, a priority, a
+  — anyone in the directory (the circle's members listed first), **a role**, or **a whole group**
+  — a due date, a priority, a
   checklist whose progress shows as a bar, and whether it **repeats** — weekly, monthly, every 3
   months or yearly. When a repeating task is done, the next one is made at once (once): the same
   title, details, owner and priority, not started, its checklist unticked, due a period after this
@@ -802,10 +805,39 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   one comment; a deleted comment with replies stays as "deleted" so the replies still make sense.
   The circle's members, the Board, and admins (anyone, for Community) add and change tasks; a task's
   owner moves it along (status and checklist) or hands it back; anyone can take on an unowned task
-  (**I'll take it**) and comment. The dashboard lists **Your tasks** across circles. Push
-  notifications (topic _tasks_): a task given to you, a task you added being done, and comments on
-  tasks you own, added, or are replying in. Stored as `tasks/<circleId>.json` and
-  `task-comments/<circleId>.json`.
+  (**I'll take it**) and comment. Push
+  notifications (topic _tasks_): a task given to you (or to a role or group you're in), a task you
+  added being done, and comments on tasks you own, added, or are replying in. Stored as
+  `tasks/<circleId>.json` and `task-comments/<circleId>.json`.
+  - **Roles and groups** – a task can be given to a **role** — a seat position in a circle, such
+    as Land Care's _Trash Master_ (given on the circle's Members, **Edit role**) — or to a whole
+    **group**: everyone in a circle or sub group (not Community, which has no members). The owner
+    list offers this circle's roles first (each with who holds it now), its members, every group,
+    then roles in other circles and everyone else. Whoever holds the role now has the task: it's
+    in their **Mine** lists and on their dashboard ("as Trash Master"), they can move it along,
+    and they're told when it's given; nobody can take on a role's task with **I'll take it**, and
+    it's never "unassigned". When a role's task is done it keeps who held the role then (the one
+    who marked it done, if they hold it), and a repeating one's next occurrence is the role's
+    again — so a yearly _Refuse education_ given to the Trash Master is next year's Trash
+    Master's, while this year's stays credited to this year's (`lib/tasks/roles.ts`: `taskHolders`,
+    `holderAtCompletion`; stored as `ownerRole: {circleId, position}`, `position: null` for a
+    group; the API serves each task with `holders`). A role is matched by name, whatever its case;
+    if nobody holds it any more the task says so and waits for the next holder.
+  - **The Tasks page** (`/tasks`, **Tasks** in the header) – every circle's tasks in one place:
+    everyone's, **Mine** (yours and your roles' and groups') or **Unassigned**; _Open_, _Done_ or
+    _All_; **Repeating only**; one circle **with its sub groups** (or without), Community covering
+    them all; and a search across titles, circles and people. Tasks are listed by circle in the
+    circles' tree order, sub groups under theirs ("Land Care Circle › Hedge Team"), most urgent
+    first. The choices are in the address (`?whose=mine&show=done&repeating=1&circle=lcc&subs=0`),
+    so a view can be shared; the dashboard's **Your tasks** links to `?whose=mine`, and each board
+    to its circle's (`GET /api/tasks`).
+  - **Task button** (a module, as many as a circle likes) – one press makes a task for a role or a
+    group: its **Settings** say what the button says ("Report a trash problem"), the task it makes
+    ("Trash problem") and who it's for. Any resident presses it and can add a note, which becomes
+    the task's description; the task goes on the board of the role's or group's circle (which
+    needs its tasks on), and its holders are told (`POST /api/circles/<id>/task-button`, which
+    reads the button's saved settings, never the press's). A button only makes tasks for circles
+    its editor looks after (admins, any).
 - **Wiki photos** – a wiki's editors add photos to its pages: the visual editor's picture button,
   pasting or dropping a photo into either editor, or **Insert photo** in Markdown mode. Photos are
   downscaled in the browser (longest side 2000px, re-encoded as JPEG, which drops location data;
@@ -891,8 +923,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
 - **A circle's page** – is built from **modules**: **Filtered Documents** and **Custom Text** (as many of
   each as the circle likes),
   **Members** (not on Community, which is everyone), the **duty schedule** where
-  there is one, **Tasks** (as many as the circle likes, each its own view), **Forum** (see Circle
-  forums), **Documents**, and **Sub groups** (each of those once). **Log** and **Finances** modules
+  there is one, **Tasks** (as many as the circle likes, each its own view), **Task button** (as many
+  as it likes), **Forum** (see Circle forums), **Documents**, and **Sub groups** (each of those once). **Log** and **Finances** modules
   aren't offered any more; a circle that already has one keeps it until it's removed. The
   **Alert** is the Safety Crew's — any circle with "safety" in its name — and is always on its page
   (`isSafetyCrew` in `lib/circles/ids.ts`, `modulesFor`), so nobody adds or removes it. One **Edit** button (the
@@ -986,7 +1018,14 @@ from then on, so re-importing the directory never overwrites circle changes.
   of its own: its own members (anyone can join, or its members approve), page, modules, and icon.
   A circle's **Sub groups** module lists them, and its members (and the Board) start one with
   **New sub group** — of the circle's kind, its founder its first member. They're one level deep
-  (a sub group has none of its own; nor has Community, nor can the Board be one). The circle's
+  (a sub group has none of its own; nor can the Board be one). Every circle is also shown
+  **within Community**, the root: `/circles` sets the circles and clubs in beneath Community's
+  card, Community's page lists them (a built-in **Circles within Community** module), each
+  circle's page starts its breadcrumb at Community ("Community › Land Care Circle › sub group"),
+  the Circles menus list Community first, and the documents sidebar and the Tasks page nest sub
+  groups in their circles (`circleTree`, `circlePath`, `circlesWithin` in `lib/circles/tiers.ts`).
+  That's only how they're shown: nothing is stored as Community's, and since Community has no
+  members it gives nobody rights over the circles within it. The circle's
   members manage its sub groups as the Board manages every circle — editing, members, documents,
   consent (`managesCircle` in `lib/circles/tiers.ts`, behind `canManageCircle`) — and can delete
   one, whose documents, pages, and open proposals then go to the circle rather than the Board;
@@ -998,7 +1037,8 @@ from then on, so re-importing the directory never overwrites circle changes.
   opens short); and
   a sub group's page says whose it is, and goes back there. Lists of
   circles to choose from name them "Land Care Circle › Hedge Team". Stored as `parentId` on the
-  circle (`POST /api/circles` with `parentId`), set when it's started and never moved.
+  circle (`POST /api/circles` with `parentId`), set when it's started and never moved (an update
+  can't name a parent).
 - **Emailing a circle** – the envelope on each circle's card (and in its members panel) asks
   whether to email the whole circle or only certain roles (op leader, secretary, …), then opens
   your mail app with their directory addresses (leaving you out), or copies them. Members with no
