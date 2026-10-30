@@ -71,7 +71,8 @@ export function DocumentsPage() {
           </Suspense>
         </Card>
       ) : null}
-      <Card>
+      {/* Each document a white box on the panel's green. */}
+      <Card className="bg-accent/70" data-documents-panel>
         <DocumentsPanel
           circles={circles}
           uploadCircles={uploadCircles}

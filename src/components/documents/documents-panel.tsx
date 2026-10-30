@@ -42,6 +42,15 @@ import {
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 
+/**
+ * How the list looks: on the Documents page each document is a white,
+ * rounded box on the panel's green; in a circle's module, plain rows with
+ * lines between them.
+ */
+const CARD_LIST =
+  "flex flex-col gap-2 [&>li]:rounded-xl [&>li]:border [&>li]:border-border [&>li]:bg-white [&>li]:px-4 [&>li]:shadow-soft";
+const ROW_LIST = "divide-y divide-border";
+
 type FileItem = DocumentListing & { kind: "file" };
 type ListResponse = {
   documents: DocumentListing[];
@@ -138,6 +147,7 @@ export function DocumentsPanel({
   /** Start with one kind: "pages", "files", or "proposals" (`/proposals`). */
   initialKind?: string;
 }) {
+  const listClass = circleId ? ROW_LIST : CARD_LIST;
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [type, setType] = useState(KINDS[initialKind] ?? "");
@@ -492,7 +502,7 @@ export function DocumentsPanel({
                 {data.total > data.items.length ? ` (showing the best ${data.items.length})` : ""}
               </p>
             ) : null}
-            <ul className={cn("divide-y divide-border", isFetching && "opacity-60")}>
+            <ul className={cn(listClass, isFetching && "opacity-60")} data-documents-list>
               {data.items.map((item) =>
                 item.kind === "proposal" ? (
                   <ProposalListingRow
@@ -555,7 +565,7 @@ export function DocumentsPanel({
               : "No discussions match."}
           </p>
           {forum.data.threads.length ? (
-            <ul className={cn("divide-y divide-border", forum.isFetching && "opacity-60")}>
+            <ul className={cn(listClass, forum.isFetching && "opacity-60")}>
               {forum.data.threads.map((hit) => (
                 <ForumResult key={hit.id} hit={hit} terms={terms} />
               ))}

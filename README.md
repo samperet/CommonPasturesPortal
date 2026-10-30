@@ -485,7 +485,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
 
 - **One section for pages and files** (`/documents`, **Documents** in the menu). Its list and search
   cover both written pages (a book icon and a **Page** label) and uploaded files (a file icon and
-  their type), filtered and sorted together (`GET /api/documents?pages=1` returns them as `items`,
+  their type), each a white, rounded box on the list's green panel (a circle's Documents module
+  keeps plain rows), filtered and sorted together (`GET /api/documents?pages=1` returns them as `items`,
   each `kind` "page", "file" or "proposal"; the **Type** filter can keep to **Written pages**, **All
   files**, **Proposals** (`/proposals` opens it), or one type of file). The one **New** button offers
   **Write a page** (a title and its circle, then the editor), **Meeting notes** (a page for one of a
