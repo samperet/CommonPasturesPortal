@@ -44,6 +44,7 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 | `src/lib/circles/types.ts` | `Circle`, `CircleSeat`, `CircleApplication`, `CircleKind`, `JoinPolicy` |
 | `src/lib/text.ts` | `sentence`, `initials`, `listNames`, `likedByLabel` |
 | `src/lib/circles/ids.ts` | `COMMUNITY_ID`, `BOARD_ID`, `isCommunity`, `sitsOnBoard` (importable anywhere) |
+| `src/lib/circles/secretary.ts` | The Board Secretary (directory-manager rights): `SECRETARY_ROLE` (the whole role, not "Assistant secretary"), `boardSecretaryIds`, and `maySetSecretary` — only admins and the Secretary give a Board seat that role or take it away, checked in the circle store (importable anywhere) |
 | `src/lib/time.ts` | `TIME_ZONE` (Vermont), `todayInVermont`, `timeAgo` |
 | `src/lib/email/` | Sending (`deliver.ts`: Brevo, then Resend as backup), the free-plan quotas, the shared email layout, notification emails, test mode |
 | `src/lib/groups/` | Circle forums: conversations and polls, with app notifications to the circle's members |

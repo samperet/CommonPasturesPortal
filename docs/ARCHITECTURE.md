@@ -90,7 +90,14 @@ Main documents (see each store's `KEY`):
 
 - **Resident**: anyone signed in; has a `personId` from the directory. `getSessionUser()`.
 - **Circle member**: holds a seat on the circle (`circle.seats[].personId`); a seat's `position`
-  ("Secretary", "Op leader", …) is free text, matched with `holdsSeat(…, /secretary/i)`.
+  ("Secretary", "Op leader", …) is free text, matched with `holdsSeat(…, SECRETARY_ROLE)`. The
+  pattern must be anchored to match the whole role: `SECRETARY_ROLE` (`lib/circles/secretary.ts`)
+  is "Secretary" in any case, spaces around it ignored — not "Assistant secretary".
+- **The Board Secretary**: whoever holds the Board seat whose role is `SECRETARY_ROLE`; manages the
+  directory (`canManageDirectory`) and new member intake. Only admins and the Secretary give a
+  Board seat that role or take it away (`maySetSecretary`, checked inside the circle store's
+  `addMember` and `updateMember`; anyone else gets a 403), so a Board member can't make
+  themselves Secretary.
 - **Sub group**: a circle with a `parentId` (`lib/circles/tiers.ts`), one level deep; its
   parent's members manage it as the Board does (`managesCircle`, which `canManageCircle` uses).
 - **The Board** (`BOARD_ID`): its members can manage every circle (`canManageCircle`,

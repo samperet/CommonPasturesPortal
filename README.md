@@ -370,8 +370,9 @@ Authors always come from the signed-in session, never from the request body.
   unless "Show non-residents" is on. Each name opens the resident's page (`/directory/<id>`) with
   their phone numbers, email, birthday, bio, circles, and household. Served by `GET /api/directory`
   to signed-in residents only (the route confirms the account server-side).
-- **Managing the directory** – the Board Secretary (whoever holds that seat on the Board) and
-  admins can add people ("Add a person"), edit anyone's entry including unit, owner/renter, and
+- **Managing the directory** – the Board Secretary (whoever holds the Board seat whose role is
+  "Secretary" itself — not "Assistant secretary"; only admins and the Secretary can give a Board
+  seat that role or take it away) and admins can add people ("Add a person"), edit anyone's entry including unit, owner/renter, and
   whether they live on site (and reset phone numbers), and remove people. Removing someone takes them out of their circles,
   closes their account (ending any session, so they can't sign in), and deletes their profile,
   photo, and notifications; what they posted stays under their name. Additions and removals live
@@ -1012,7 +1013,8 @@ from then on, so re-importing the directory never overwrites circle changes.
   (`POST`/`DELETE /api/circles/<id>/join`).
 - `/circles/<id>` is each circle's page, with its members in a side panel on the right (below the
   header on phones). Its members and the Board can edit its name, description, and who can join, add residents, change a member's role or term, remove members, and upload an
-  icon. Only the Board can delete a circle, the Board itself can't be deleted, and the Board always
+  icon — except that only admins and the Board Secretary can make a Board seat the Secretary or
+  change the Secretary's role. Only the Board can delete a circle, the Board itself can't be deleted, and the Board always
   keeps at least one member.
 - **Duty schedules** – a circle can have a rotation (e.g. the Chicken Tenders' chicken and compost
   duty), shown on its page as a month calendar that continues indefinitely: today's and

@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { canManageDirectory } from "@/lib/directory/access";
 import { adminPersonIds } from "@/lib/auth/admins";
 import { loadAdmins } from "@/lib/auth/admin-store";
-import { BOARD_ID } from "@/lib/circles/ids";
+import { boardSecretaryIds } from "@/lib/circles/secretary";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import { readDirectory } from "@/lib/directory/store";
 import { problem } from "@/lib/http";
@@ -15,9 +15,10 @@ import { invitationToken, readInvitationToken } from "./token";
 
 /**
  * Who may do what with new member intake. The Secretary page and its API are
- * for whoever manages the directory — the Board Secretary (the Board's
- * Secretary seat) and admins. A welcome page is for whoever holds its link:
- * no account needed, the signed token is the key.
+ * for whoever manages the directory — the Board Secretary (the Board seat
+ * whose role is exactly "Secretary": `lib/circles/secretary.ts`) and admins.
+ * A welcome page is for whoever holds its link: no account needed, the signed
+ * token is the key.
  */
 
 export async function secretaryContext() {
@@ -32,19 +33,15 @@ export async function secretaryContext() {
 
 /** Whoever holds the Board's Secretary seat (the first, if two do), by name — or null. */
 export function boardSecretary(directory: DirectoryDocument) {
-  const seat = directory.circles
-    .find((circle) => circle.id === BOARD_ID)
-    ?.seats.find((entry) => entry.personId && /secretary/i.test(entry.position ?? ""));
-  const person = seat ? directory.people.find((entry) => entry.id === seat.personId) : null;
+  const [personId] = boardSecretaryIds(directory.circles);
+  const person = personId ? directory.people.find((entry) => entry.id === personId) : null;
   return person ? { personId: person.id, name: person.displayName } : null;
 }
 
 /** Who manages new members: the Board Secretary seat's holders, and the admins (person ids). */
 export async function intakeManagers(directory: DirectoryDocument): Promise<string[]> {
   await loadAdmins();
-  const secretaries = (directory.circles.find((circle) => circle.id === BOARD_ID)?.seats ?? [])
-    .filter((seat) => seat.personId && /secretary/i.test(seat.position ?? ""))
-    .map((seat) => seat.personId as string);
+  const secretaries = boardSecretaryIds(directory.circles);
   return Array.from(new Set([...secretaries, ...Array.from(adminPersonIds())]));
 }
 

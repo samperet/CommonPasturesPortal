@@ -49,7 +49,11 @@ export function applyCircleIcon(circle: Circle, meta: IconMeta | undefined): Cir
   };
 }
 
-/** Whether a person holds a seat on a circle whose position matches (e.g. /secretary/i). */
+/**
+ * Whether a person holds a seat on a circle whose position matches — the
+ * whole role, so anchor the pattern (`SECRETARY_ROLE` in `secretary.ts`):
+ * an unanchored /secretary/i would match "Assistant secretary" too.
+ */
 export function holdsSeat(
   directory: DirectoryDocument,
   circleId: string,

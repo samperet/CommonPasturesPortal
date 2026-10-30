@@ -26,6 +26,11 @@ export function circleProblem(reason: Failure) {
       return problem("This circle has too many open applications — ask a member", 409);
     case "bad_parent":
       return problem("A sub group belongs to a circle, not to a sub group or Community", 400);
+    case "secretary":
+      return problem(
+        "Only admins and the Board Secretary can give someone the Board's Secretary role or take it away",
+        403
+      );
   }
 }
 

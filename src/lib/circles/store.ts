@@ -20,13 +20,17 @@ import { mutateJson, readJson, readOrSeedJson } from "@/lib/storage";
 import { TASK_DUES, TASK_SHOWS, TASK_WHOSE } from "@/lib/tasks/shared";
 import { BOARD_ID, COMMUNITY_ID, isCommunity } from "./ids";
 import { canHaveSubgroups } from "./tiers";
+import { changesSecretary, maySetSecretary } from "./secretary";
+import type { Actor } from "@/lib/auth/actor";
 import type { Circle, CircleApplication, CircleKind, CircleSeat } from "@/lib/circles/types";
 
 /**
  * Circles are managed in the app. The store is seeded once from the imported
  * spreadsheet (members only — the sheet's empty placeholder seats are
  * dropped); after that it is the source of truth and re-imports don't touch it.
- * Every member is a directory resident.
+ * Every member is a directory resident. A Board seat's role becomes or stops
+ * being "Secretary" (which manages the directory) only by an admin or the
+ * Secretary (`maySetSecretary`), checked here against the circles as stored.
  */
 
 const KEY = "circles/circles.json";
@@ -250,7 +254,8 @@ export type Failure =
   | "not_member"
   | "full"
   | "everyone"
-  | "bad_parent";
+  | "bad_parent"
+  | "secretary";
 export type CircleResult<T = Circle> = { ok: true; value: T } | { ok: false; reason: Failure };
 
 async function mutate<T>(
@@ -377,7 +382,8 @@ export function deleteCircle(imported: Circle[], id: string) {
 export function addMember(
   imported: Circle[],
   id: string,
-  member: { personId: string; name: string; position: string | null; termEnds: string | null }
+  member: { personId: string; name: string; position: string | null; termEnds: string | null },
+  actor: Pick<Actor, "personId" | "admin">
 ) {
   return mutate(imported, (circles) => {
     const index = circles.findIndex((circle) => circle.id === id);
@@ -385,6 +391,8 @@ export function addMember(
     if (isCommunity(id)) return "everyone";
     if (circles[index].seats.some((seat) => seat.personId === member.personId))
       return "duplicate_member";
+    if (changesSecretary(id, null, member.position) && !maySetSecretary(circles, actor))
+      return "secretary";
     const seat: CircleSeat = { id: randomUUID(), ...member };
     const next = [...circles];
     next[index] = { ...next[index], seats: [...next[index].seats, seat] };
@@ -396,18 +404,20 @@ export function updateMember(
   imported: Circle[],
   id: string,
   memberId: string,
-  update: { position?: string | null; termEnds?: string | null }
+  update: { position?: string | null; termEnds?: string | null },
+  actor: Pick<Actor, "personId" | "admin">
 ) {
   return mutate(imported, (circles) => {
     const index = circles.findIndex((circle) => circle.id === id);
-    if (index === -1 || !circles[index].seats.some((seat) => seat.id === memberId))
-      return "not_found";
+    const before = circles[index]?.seats.find((seat) => seat.id === memberId);
+    if (!before) return "not_found";
+    const after = { ...before, ...update };
+    if (changesSecretary(id, before.position, after.position) && !maySetSecretary(circles, actor))
+      return "secretary";
     const next = [...circles];
     next[index] = {
       ...next[index],
-      seats: next[index].seats.map((seat) =>
-        seat.id === memberId ? { ...seat, ...update } : seat
-      ),
+      seats: next[index].seats.map((seat) => (seat.id === memberId ? after : seat)),
     };
     return { circles: next, value: next[index] };
   });
