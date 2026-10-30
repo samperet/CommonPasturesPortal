@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -18,7 +17,6 @@ import { getSessionUser } from "@/lib/auth/session";
 import { PublicHome } from "@/components/home/public-home";
 import { publicHomes } from "@/lib/homes/store";
 import { SectionArt, hasSectionArt } from "@/components/layout/section-art";
-import { TIME_ZONE } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -67,55 +65,17 @@ export const metadata = {
     "Do you seek community? Common Pastures, a Champlain Valley Cohousing development (CVC): energy-efficient homes clustered around a central green on 125 acres of farmland, woods, and ponds in Charlotte, Vermont.",
 };
 
-/** "Good morning", by the time of day in Vermont. */
-function greeting(now = new Date()) {
-  const hour = Number(
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      hourCycle: "h23",
-      timeZone: TIME_ZONE,
-    }).format(now)
-  );
-  return hour < 5
-    ? "Good evening"
-    : hour < 12
-      ? "Good morning"
-      : hour < 17
-        ? "Good afternoon"
-        : "Good evening";
-}
-
 /** The public front page for visitors; the dashboard for signed-in residents. */
 export default async function HomePage() {
   const user = await getSessionUser();
   if (!user) return <PublicHome homes={await publicHomes().catch(() => [])} />;
   const [nextEvent] = await getUpcomingEvents(1);
-  const firstName = user.name.split(/\s+/)[0];
-  const today = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    timeZone: TIME_ZONE,
-  }).format(new Date());
   return (
     <div className="flex flex-col gap-6">
-      <section className="relative overflow-hidden rounded-2xl bg-forest px-6 py-7 text-white shadow-soft md:px-8 md:py-9">
-        <Image
-          src="/home/leaf.webp"
-          alt=""
-          aria-hidden
-          width={591}
-          height={1000}
-          priority
-          className="pointer-events-none absolute -right-8 -top-10 h-[190%] w-auto max-w-none select-none opacity-80"
-        />
-        <p className="relative text-sm font-medium text-sun">{today}</p>
-        <h1 className="relative mt-1 text-3xl font-semibold md:text-4xl">
-          {greeting()}, {firstName}
-        </h1>
-      </section>
-      <NotificationsNudge />
+      {/* The page's name (back links say "← Dashboard"); the green header shows the next event. */}
+      <h1 className="sr-only">Dashboard</h1>
       <NextEvent event={nextEvent ?? null} />
+      <NotificationsNudge />
       <YourProposals />
       <MyTasks />
       <section className="grid gap-4 sm:grid-cols-2">

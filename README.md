@@ -1257,7 +1257,8 @@ circles keep using Google Groups or whatever email they like for mail.
   resident can change theirs but not remove it (admins can). Photos are center-cropped and
   downscaled in the browser, verified server-side by their bytes (JPEG, PNG, or WebP, up to 1 MB),
   stored in `profiles/photos/`, and served only to signed-in residents.
-- **Community calendar** – the dashboard shows the next event, read server-side from the calendar's
+- **Community calendar** – the dashboard's green header (with the leaf) shows the next event —
+  its day, how soon, title, time and place, and a link to the full calendar — read server-side from the calendar's
   public iCal feed (cached 15 minutes) with recurring events expanded — honouring cancelled dates
   and one-off changes — and all-day dates anchored to Eastern time. `/calendar` embeds the full
   Google Calendar (month view on wide screens, agenda on phones) with a link to add it.
