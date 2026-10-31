@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NO_EMAIL, updateEmailPreferences } from "@/lib/email/preferences";
+import { emailPreferences, NO_EMAIL, updateEmailPreferences } from "@/lib/email/preferences";
+import { changedTopics } from "@/lib/notifications/shared";
+import { recordChange } from "@/lib/notifications/store";
 import {
   readUnsubscribeToken,
   unsubscribeToken,
@@ -56,8 +58,17 @@ async function describe(scope: UnsubscribeScope) {
   };
 }
 
-function apply(personId: string, scope: UnsubscribeScope) {
-  return updateEmailPreferences(personId, scope === "all" ? NO_EMAIL : { [scope]: false });
+/** Turn it off, and note that it was (and how) in the opt-in/opt-out log. */
+async function apply(personId: string, scope: UnsubscribeScope, via: "email link" | "one-click") {
+  const before = await emailPreferences(personId);
+  await updateEmailPreferences(personId, scope === "all" ? NO_EMAIL : { [scope]: false });
+  const topics = changedTopics(before, scope === "all" ? NO_EMAIL : { [scope]: false });
+  await recordChange({
+    who: personId,
+    channel: "email",
+    topics: scope === "all" && Object.keys(topics).length ? { all: false } : topics,
+    via,
+  });
 }
 
 const invalid = () =>
@@ -86,11 +97,11 @@ export async function POST(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t") ?? "";
   const found = readUnsubscribeToken(token);
   if (!found) return throttled(request, "unsubscribe") ?? invalid();
-  await apply(found.personId, found.scope);
   const form = await request.formData().catch(() => null);
   // A mail app's one-click: a plain answer is enough.
-  if (form?.get("List-Unsubscribe") === "One-Click" || !form?.get("confirm"))
-    return new NextResponse("Unsubscribed", { status: 200 });
+  const oneClick = form?.get("List-Unsubscribe") === "One-Click" || !form?.get("confirm");
+  await apply(found.personId, found.scope, oneClick ? "one-click" : "email link");
+  if (oneClick) return new NextResponse("Unsubscribed", { status: 200 });
   const words = await describe(found.scope);
   const all =
     found.scope === "all"

@@ -7,6 +7,8 @@ describe("backup contents", () => {
     expect(leftOut("chat/people/000000000001.json")).not.toBeNull();
     expect(leftOut("auth/sign-in-links-2.json")).not.toBeNull();
     expect(leftOut("push/vapid.json")).not.toBeNull();
+    expect(leftOut("notifications/log/2026-10-30.json")).not.toBeNull();
+    expect(leftOut("notifications/changes.json")).not.toBeNull();
     expect(leftOut("backups/subscribers.json")).not.toBeNull();
     expect(leftOut("circles/finances/lcc/uploads/e1/u1/0")).toBe("unfinished uploads");
     expect(leftOut("documents/uploads/u1/0")).not.toBeNull();

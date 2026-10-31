@@ -47,6 +47,7 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 | `src/lib/time.ts` | `TIME_ZONE` (Vermont), `todayInVermont`, `timeAgo` |
 | `src/lib/email/` | Sending (`deliver.ts`: Brevo, then Resend as backup), the free-plan quotas, the shared email layout, notification emails, test mode |
 | `src/lib/groups/` | Circle forums: conversations and polls, with app notifications to the circle's members |
+| `src/lib/notifications/` | Who's told what: `plan.ts` (`planDelivery`, pure: for each resident a notification is for, by app and by email, "send" or why not — what `notify()` in `lib/push/notify.ts` sends by and the admins' "who would get one now?" previews), `store.ts` (the delivery log, a file per Vermont day; the opt-in/opt-out log), `shared.ts` (outcomes and their words, `TOPIC_AUDIENCES`); shown on `/admin/notifications` and residents' "Sent to you lately" |
 | `src/lib/wiki/tree.ts` | Pages inside pages (`parentId`), their order (`order`, a fractional index: `orderBetween`, `placeAfter` for "right after this sibling"), `buildTree`, `ancestorsOf`, `descendantsOf`, `canNest`; pure, used by the store, the Move dialog and the trail over a page's title. Drafts: `visiblePages`/`canSeePage` in `access.ts` is the one gate wherever pages are listed or read for a person |
 | `src/components/documents/docs-shell.tsx`, `sidebar.tsx` | The shell around `/documents*` and `/wiki/*` (the layouts there): the Outline-style sidebar — all documents, starred and recent, drafts, and the circles as one tree (Community at the root, folding every circle up into it; each circle's sub groups within it) — which holds no documents but filters the Documents list through its address (`?circle=`, `?kind=`; `place`/`onPlace` in `documents-panel.tsx`); a phone drawer; keys `[` `]` `n`. A page's place among its circle's pages is changed with its Move button (`move-dialog.tsx`, `PATCH {parentId, after}`). `docs-context.ts` lets pages start a page inside another through the shell |
 | `src/lib/site-url.ts` | `siteUrl()` (the app's address for emails), and the wiki's own address (`WIKI_HOST`): `isWikiHost` (the middleware redirects `/` to `/documents` there and sets `x-cvc-wiki-host`, which the root layout passes to `AppShell` as `wikiHost`), `requestSite` (sign-in links lead back to the address they were asked on) |
@@ -101,9 +102,10 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 - **A circle module type**: `MODULE_TYPES`/`MODULE_NAMES` in `layout.ts`, `MODULE_ICONS`/hints and
   the offered list in `components/circles/module-dialogs.tsx`, a case in `sectionFor` in
   `circle-detail-client.tsx`.
-- **A notification topic**: `TOPICS` in `src/lib/push/topics.ts`, `DEFAULT_PREFERENCES` in
-  `src/lib/push/store.ts` and `DEFAULT_EMAIL_PREFERENCES` in `src/lib/email/shared.ts`; send with
-  `notify()` (push, and email for those who chose it).
+- **A notification topic**: `TOPICS` and `DEFAULT_PREFERENCES` in `src/lib/push/topics.ts`,
+  `DEFAULT_EMAIL_PREFERENCES` in `src/lib/email/shared.ts`, and who it goes to in words
+  (`TOPIC_AUDIENCES`, `src/lib/notifications/shared.ts`); send with `notify()` (push, and email for
+  those who chose it — planned, sent and recorded in the delivery log).
 - **Comments on something new**: extend `CommentRecord` with the feature's fields, call
   `addComment`/`editComment`/`deleteComment` from the store's `mutate()`, map `normalizeComment` over
   what's read, and render with `CommentTree`.

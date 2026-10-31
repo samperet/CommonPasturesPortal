@@ -238,6 +238,8 @@ export interface Sending {
   sent: number;
   /** Tried and not taken by any provider. */
   failed: number;
+  /** Indexes of those. */
+  failedIndexes: number[];
   /** Indexes of the emails no provider had room for today — never tried. */
   overQuota: number[];
   /** How many each provider took. */
@@ -258,7 +260,14 @@ export async function sendEmails(
   idempotencyKey?: string,
   only?: Provider
 ): Promise<Sending> {
-  const result: Sending = { sent: 0, failed: 0, overQuota: [], by: {}, errors: {} };
+  const result: Sending = {
+    sent: 0,
+    failed: 0,
+    failedIndexes: [],
+    overQuota: [],
+    by: {},
+    errors: {},
+  };
   let waiting = messages.map((_, index) => index);
   const tried = new Set<number>();
   for (const provider of PROVIDERS.filter(
@@ -286,7 +295,8 @@ export async function sendEmails(
       console.error("[email] sending through a provider failed", provider, errorName(error));
     }
   }
-  result.failed = waiting.filter((index) => tried.has(index)).length;
+  result.failedIndexes = waiting.filter((index) => tried.has(index));
+  result.failed = result.failedIndexes.length;
   result.overQuota = waiting.filter((index) => !tried.has(index));
   return result;
 }

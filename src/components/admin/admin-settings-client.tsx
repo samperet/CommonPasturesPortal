@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bug,
   Download,
+  BellRing,
   History,
   Mail,
   NotebookPen,
@@ -48,6 +49,7 @@ function how(admin: AdminView) {
 const OTHER_PAGES = [
   { href: "/admin/sign-ins", label: "Sign-in log", icon: History },
   { href: "/admin/feedback", label: "Bugs & requests", icon: Bug },
+  { href: "/admin/notifications", label: "Notifications: who's told what", icon: BellRing },
   { href: "/admin/email", label: "Email", icon: Mail },
   { href: "/admin/outline", label: "Import from Outline", icon: Download },
   { href: "/secretary", label: "Secretary: new members", icon: NotebookPen },

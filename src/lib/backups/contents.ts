@@ -36,6 +36,10 @@ export const FOR_RESIDENTS_LEFT_OUT: Rule[] = [
   { prefix: "email/log.json", why: "the email log (only admins see it)" },
   { prefix: "email/quota.json", why: "emails sent this month (only admins see it)" },
   {
+    prefix: "notifications/",
+    why: "who each notification went to, and who turned what on or off (only admins see it)",
+  },
+  {
     prefix: "email/settings.json",
     why: "email's test mode and its addresses (only admins see them)",
   },

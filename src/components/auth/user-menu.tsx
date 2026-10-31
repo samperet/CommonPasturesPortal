@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   Bot,
   Bell,
+  BellRing,
   Bug,
   Compass,
   Eye,
@@ -169,6 +170,13 @@ export function UserMenu() {
               <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
                 <Link href="/admin/email" onClick={() => setOpen(false)}>
                   <Mail className="h-4 w-4" /> Email
+                </Link>
+              </Button>
+            ) : null}
+            {user.isAdmin ? (
+              <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
+                <Link href="/admin/notifications" onClick={() => setOpen(false)}>
+                  <BellRing className="h-4 w-4" /> Notifications
                 </Link>
               </Button>
             ) : null}

@@ -95,11 +95,15 @@ export interface EmailPerson {
   email: string | null;
 }
 
+/** Why someone is or isn't emailed about something: "send", or a reason. */
+export type EmailChoice = "send" | "held" | "off" | "no-address" | "shared-address";
+
 /**
  * The people to email about a `topic`: those it's for (`onlyPersonIds`, or
  * everyone), not its author, with an address, who chose this topic — one
  * email per address. In test mode only allowed addresses get one; the rest
- * are `skipped`.
+ * are `skipped`. `outcomes` says, for everyone it's for, why they are or
+ * aren't emailed (for the delivery log).
  */
 export function chooseRecipients({
   people,
@@ -115,20 +119,33 @@ export function chooseRecipients({
   onlyPersonIds: Set<string> | null;
   exceptPersonId: string | null;
   settings: Pick<EmailSettings, "testMode" | "allowed">;
-}): { to: { personId: string; email: string }[]; skipped: number } {
+}): {
+  to: { personId: string; email: string }[];
+  skipped: number;
+  outcomes: Record<string, EmailChoice>;
+} {
   const allowed = new Set(settings.allowed.map((address) => address.toLowerCase()));
   const seen = new Set<string>();
   const to: { personId: string; email: string }[] = [];
+  const outcomes: Record<string, EmailChoice> = {};
   let skipped = 0;
   for (const person of people) {
     if (person.id === exceptPersonId) continue;
     if (onlyPersonIds && !onlyPersonIds.has(person.id)) continue;
     const email = person.email?.trim().toLowerCase();
-    if (!email || !isEmailAddress(email) || seen.has(email)) continue;
-    if (!emailPreferencesFor(preferences[person.id])[topic]) continue;
-    seen.add(email);
-    if (settings.testMode && !allowed.has(email)) skipped++;
-    else to.push({ personId: person.id, email });
+    if (!email || !isEmailAddress(email)) outcomes[person.id] = "no-address";
+    else if (seen.has(email)) outcomes[person.id] = "shared-address";
+    else if (!emailPreferencesFor(preferences[person.id])[topic]) outcomes[person.id] = "off";
+    else {
+      seen.add(email);
+      if (settings.testMode && !allowed.has(email)) {
+        skipped++;
+        outcomes[person.id] = "held";
+      } else {
+        to.push({ personId: person.id, email });
+        outcomes[person.id] = "send";
+      }
+    }
   }
-  return { to, skipped };
+  return { to, skipped, outcomes };
 }

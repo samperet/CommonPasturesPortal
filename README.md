@@ -1251,6 +1251,28 @@ from then on, so re-importing the directory never overwrites circle changes.
   domain isn't verified, or the key can't send.
 - **Unsubscribe links** ask first (GET shows a button; POST — the button or a mail app's one-click
   — acts), so link scanners can't unsubscribe anyone.
+- **Who's told what** – every notification is planned once for each resident it's for
+  (`planDelivery` in `lib/notifications/plan.ts`, the same rules `notify()` sends by), then sent,
+  then recorded in the **delivery log**: for each resident, how it went by app — *sent*, *sent,
+  unconfirmed* (the push service hadn't answered in six seconds), *refused*, *turned off*, *no
+  device*, *not signed in* — and by email — *emailed*, *held* (test mode), *over the day's quota*,
+  *refused*, *not chosen*, *no address*, *shared address*. Sign-in links are logged beside them.
+  The log keeps titles and outcomes only, never what was said — and for a private message not even
+  the title or sender. One file per Vermont day (`notifications/log/<day>.json`), kept about
+  thirteen months. The **opt-in/opt-out log** (`notifications/changes.json`, the latest 3,000)
+  notes every topic turned on or off by app or email — in settings, from an email's Stop link, or
+  by a mail app's one-click unsubscribe — and every device turned on or off, or dropped because
+  its push service said it's gone.
+- **Notifications (admins)** – `/admin/notifications` (in the account menu and Admin settings):
+  **Sent** lists every notification with its counts by outcome; **Who** opens the names under each,
+  and a person filter shows how each went for them. **People** shows each resident's address,
+  account, devices, and choices by app and email (marking defaults), what was sent to them, and what
+  they changed. **Rules** lists each topic — who it goes to (`TOPIC_AUDIENCES`), its defaults, how
+  many have it on — with **Who would get one now?**, the plan for everyone or a circle's members,
+  nothing sent. **Opt-ins & outs** is the change log. (`GET /api/admin/notifications?days=`,
+  `GET /api/admin/notifications/preview?topic=&circle=`.)
+- **Sent to you lately** – each resident's **App & notifications** lists what was sent to them in
+  the last 30 days and how it reached them, or why it didn't (`GET /api/me/notifications`).
 
 ## Circle forums
 

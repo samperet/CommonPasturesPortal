@@ -1,11 +1,10 @@
-import { listUsers } from "@/lib/auth/users";
-import { readDirectory } from "@/lib/directory/store";
+import { randomUUID } from "crypto";
 import { TOPICS, type Topic } from "@/lib/push/topics";
 import { siteUrl } from "@/lib/site-url";
-import { allEmailPreferences } from "./preferences";
 import { PROVIDERS, type Provider } from "./quota";
-import { logEmail, readEmailSettings } from "./settings";
-import { chooseRecipients, PROVIDER_NAMES } from "./shared";
+import { recordDelivery } from "@/lib/notifications/store";
+import { logEmail } from "./settings";
+import { PROVIDER_NAMES } from "./shared";
 import { unsubscribeToken } from "./unsubscribe";
 import {
   emailConfigured,
@@ -80,51 +79,23 @@ function compose(
 }
 
 /**
- * Email a notification to those who chose its topic (see `chooseRecipients`):
- * `onlyUserIds` narrows it to those accounts' residents, `onlyPersonIds` to
- * these residents (whether or not they've signed in); the author
- * (`exceptUserId`) is left out. Logged for the admin page. Never throws.
+ * Email a notification to the residents planned for it (`planDelivery` in
+ * `lib/notifications/plan.ts`, by the email rules in `chooseRecipients`),
+ * logged for the admin's email page (`skipped`: those held back by test
+ * mode). Who wasn't sent theirs: `failed` (refused) and `overQuota` (no room
+ * today), by person id. Never throws: if it can't send, every one of them
+ * is `failed`.
  */
-export async function emailNotification(message: {
-  topic: Topic;
-  title: string;
-  body: string;
-  url: string;
-  exceptUserId: string | null;
-  onlyUserIds?: string[];
-  onlyPersonIds?: string[];
-}) {
+export async function emailNotification(
+  message: { topic: Topic; title: string; body: string; url: string },
+  to: { personId: string; email: string }[],
+  skipped: number,
+  testMode: boolean
+): Promise<{ failed: string[]; overQuota: string[] }> {
   try {
-    if (!emailConfigured()) return;
-    const [settings, directory, users, preferences] = await Promise.all([
-      readEmailSettings(),
-      readDirectory(),
-      listUsers(),
-      allEmailPreferences(),
-    ]);
-    if (!directory) return;
-    const personOf = new Map(users.map((user) => [user.id, user.personId ?? null]));
-    const fromAccounts = message.onlyUserIds
-      ? new Set(
-          message.onlyUserIds.map((id) => personOf.get(id)).filter((id): id is string => !!id)
-        )
-      : null;
-    const people = message.onlyPersonIds ? new Set(message.onlyPersonIds) : null;
-    const only =
-      fromAccounts && people
-        ? new Set(Array.from(people).filter((id) => fromAccounts.has(id)))
-        : fromAccounts ?? people;
-    const { to, skipped } = chooseRecipients({
-      people: directory.people,
-      topic: message.topic,
-      preferences,
-      onlyPersonIds: only,
-      exceptPersonId: message.exceptUserId ? personOf.get(message.exceptUserId) ?? null : null,
-      settings,
-    });
-    if (!to.length && !skipped) return;
+    if (!to.length && !skipped) return { failed: [], overQuota: [] };
     const result = await sendEmails(
-      to.map((recipient) => compose(message, recipient, settings.testMode)),
+      to.map((recipient) => compose(message, recipient, testMode)),
       "notifications"
     );
     const over = new Set(result.overQuota);
@@ -139,11 +110,16 @@ export async function emailNotification(message: {
       overQuota: result.overQuota.length,
       by: result.by,
       ...errorsOf(result),
-      testMode: settings.testMode,
-      ...(settings.testMode ? { to: sending.map((recipient) => recipient.email) } : {}),
+      testMode,
+      ...(testMode ? { to: sending.map((recipient) => recipient.email) } : {}),
     });
+    return {
+      failed: result.failedIndexes.map((index) => to[index].personId),
+      overQuota: result.overQuota.map((index) => to[index].personId),
+    };
   } catch (error) {
     console.error("[email] notification failed", error instanceof Error ? error.name : "error");
+    return { failed: to.map((recipient) => recipient.personId), overQuota: [] };
   }
 }
 
@@ -151,12 +127,15 @@ export async function emailNotification(message: {
  * One email to one person, on purpose — a new member's welcome from the
  * Board Secretary, or a resident's sign-in link — rather than a
  * notification: it isn't held back by test mode (nobody could sign in),
- * and it's logged by its kind, without the address. It counts against the
- * free plan's quota like the rest. Whether it went; never throws.
+ * and it's logged by its kind, without the address — and, when it's to a
+ * resident (`personId`), in the delivery log beside their notifications. It
+ * counts against the free plan's quota like the rest. Whether it went;
+ * never throws.
  */
 export async function sendDirectEmail(
   kind: "welcome" | "sign-in",
-  message: Outgoing
+  message: Outgoing,
+  personId?: string | null
 ): Promise<{
   sent: boolean;
   errors: Sending["errors"];
@@ -181,6 +160,21 @@ export async function sendDirectEmail(
       ...errorsOf(result),
       testMode: false,
     });
+    if (personId)
+      await recordDelivery({
+        id: randomUUID(),
+        at: new Date().toISOString(),
+        topic: kind,
+        title: message.subject.slice(0, 200),
+        url: null,
+        by: null,
+        narrowed: true,
+        testMode: false,
+        app: {},
+        email: {
+          [result.sent ? "sent" : result.overQuota.length ? "over-quota" : "failed"]: [personId],
+        },
+      });
     return {
       sent: result.sent > 0,
       errors: result.errors,

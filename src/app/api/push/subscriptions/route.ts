@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { removeSubscriptions, saveSubscription, subscriptionSchema } from "@/lib/push/store";
+import { recordChange, whoOf } from "@/lib/notifications/store";
 import { problem, throttled } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export async function POST(request: NextRequest) {
   if (!user) return problem("Sign in to continue", 401);
   const parsed = subscriptionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return problem("That notification subscription isn't valid");
-  await saveSubscription(user.id, parsed.data);
+  if (await saveSubscription(user.id, parsed.data))
+    await recordChange({ who: whoOf(user), channel: "device", device: "added", via: "settings" });
   return NextResponse.json({ ok: true }, { status: 201 });
 }
 
@@ -27,5 +29,6 @@ export async function DELETE(request: NextRequest) {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success) return problem("Say which device to turn off");
   await removeSubscriptions([parsed.data.endpoint], user.id);
+  await recordChange({ who: whoOf(user), channel: "device", device: "removed", via: "settings" });
   return NextResponse.json({ ok: true });
 }

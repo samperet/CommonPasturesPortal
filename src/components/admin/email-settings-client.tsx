@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, FlaskConical, Gauge, Mail, Plus, Send, X } from "lucide-react";
@@ -130,7 +131,12 @@ export function EmailSettingsClient() {
               <AlertTriangle className="h-4 w-4" /> Email is off: neither BREVO_KEY nor RESEND_KEY
               is set.
             </span>
-          )}
+          )}{" "}
+          Who each notification went to, and why not:{" "}
+          <Link href="/admin/notifications" className="font-medium text-pine hover:underline">
+            Notifications
+          </Link>
+          .
         </p>
       </div>
 

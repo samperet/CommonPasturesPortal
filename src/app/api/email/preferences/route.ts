@@ -8,6 +8,8 @@ import {
   updateEmailPreferences,
 } from "@/lib/email/preferences";
 import { TOPICS, type Topic } from "@/lib/push/topics";
+import { changedTopics } from "@/lib/notifications/shared";
+import { recordChange } from "@/lib/notifications/store";
 import { PUSH_ONLY_TOPICS } from "@/lib/email/shared";
 
 const EMAIL_TOPICS = Object.fromEntries(
@@ -39,7 +41,13 @@ export async function PATCH(request: NextRequest) {
   if (!user.personId) return problem("Your account isn't linked to the directory", 400);
   const parsed = await readBody(request, emailPreferencesSchema);
   if ("error" in parsed) return parsed.error;
-  return NextResponse.json({
-    preferences: await updateEmailPreferences(user.personId, parsed.data),
+  const before = await emailPreferences(user.personId);
+  const preferences = await updateEmailPreferences(user.personId, parsed.data);
+  await recordChange({
+    who: user.personId,
+    channel: "email",
+    topics: changedTopics(before, parsed.data),
+    via: "settings",
   });
+  return NextResponse.json({ preferences });
 }

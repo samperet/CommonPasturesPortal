@@ -1,8 +1,9 @@
 /**
  * What residents can be told about — by push notification and by email —
- * with the words their settings show. Safe for the browser. A new topic also
- * needs its defaults: `DEFAULT_PREFERENCES` (push, `store.ts`) and
- * `DEFAULT_EMAIL_PREFERENCES` (`lib/email/shared.ts`).
+ * with the words their settings show, and what each is by app until they
+ * choose (`DEFAULT_PREFERENCES`). Safe for the browser. A new topic also
+ * needs its email default (`DEFAULT_EMAIL_PREFERENCES`, `lib/email/shared.ts`)
+ * and its audience in words (`TOPIC_AUDIENCES`, `lib/notifications/shared.ts`).
  */
 
 export const TOPICS = {
@@ -27,3 +28,24 @@ export const TOPICS = {
 
 export type Topic = keyof typeof TOPICS;
 export type Preferences = Record<Topic, boolean>;
+
+/** What residents are told about by app until they choose: everything. */
+export const DEFAULT_PREFERENCES: Preferences = {
+  discussions: true,
+  replies: true,
+  appreciations: true,
+  photos: true,
+  resources: true,
+  library: true,
+  documents: true,
+  circles: true,
+  polls: true,
+  proposals: true,
+  wiki: true,
+  mentions: true,
+  following: true,
+  tasks: true,
+  groups: true,
+  messages: true,
+  alerts: true,
+};

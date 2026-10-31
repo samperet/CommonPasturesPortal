@@ -6,29 +6,9 @@ import { mutateJson, readJson } from "@/lib/storage";
  * what to be notified about (shared by all their devices).
  */
 
-import { TOPICS, type Preferences, type Topic } from "./topics";
+import { DEFAULT_PREFERENCES, TOPICS, type Preferences, type Topic } from "./topics";
 
-export { TOPICS, type Preferences, type Topic };
-
-export const DEFAULT_PREFERENCES: Preferences = {
-  discussions: true,
-  replies: true,
-  appreciations: true,
-  photos: true,
-  resources: true,
-  library: true,
-  documents: true,
-  circles: true,
-  polls: true,
-  proposals: true,
-  wiki: true,
-  mentions: true,
-  following: true,
-  tasks: true,
-  groups: true,
-  messages: true,
-  alerts: true,
-};
+export { DEFAULT_PREFERENCES, TOPICS, type Preferences, type Topic };
 
 export interface PushSubscriptionRecord {
   endpoint: string;
@@ -63,23 +43,28 @@ export async function listSubscriptions(): Promise<PushSubscriptionRecord[]> {
   return normalizeSubscriptions(await readJson(SUBSCRIPTIONS));
 }
 
-/** Save a device's subscription for this resident (a device that changes hands moves to its new owner). */
+/**
+ * Save a device's subscription for this resident (a device that changes
+ * hands moves to its new owner). Whether it's new to them.
+ */
 export async function saveSubscription(
   userId: string,
   subscription: z.infer<typeof subscriptionSchema>
-) {
+): Promise<boolean> {
   const record: PushSubscriptionRecord = {
     ...subscription,
     userId,
     createdAt: new Date().toISOString(),
   };
-  await mutateJson(SUBSCRIPTIONS, (raw) => {
-    const others = normalizeSubscriptions(raw).filter(
-      (entry) => entry.endpoint !== subscription.endpoint
+  return mutateJson(SUBSCRIPTIONS, (raw) => {
+    const list = normalizeSubscriptions(raw);
+    const others = list.filter((entry) => entry.endpoint !== subscription.endpoint);
+    const known = list.some(
+      (entry) => entry.endpoint === subscription.endpoint && entry.userId === userId
     );
     return {
       value: { subscriptions: [...others, record].slice(-MAX_SUBSCRIPTIONS) },
-      result: null,
+      result: !known,
     };
   });
 }

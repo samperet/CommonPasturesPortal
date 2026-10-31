@@ -42,7 +42,7 @@ export async function findSignInPerson(personId: string) {
  * screen.
  */
 export function sendSignInEmail(
-  person: { displayName: string },
+  person: { id?: string; displayName: string },
   to: string,
   token: string,
   code: string,
@@ -73,25 +73,29 @@ export function sendSignInEmail(
   }">Or enter this code: <span style="letter-spacing:1px;color:${PALETTE.soft}">${spaced}</span></p>
 <p style="margin:4px 0 0;font:12px/1.6 ${SANS};color:${PALETTE.muted}">${escapeHtml(note)}</p>
 </div>`;
-  return sendDirectEmail("sign-in", {
-    to,
-    subject: "Sign in to Common Pastures",
-    text: [
-      `Hello ${first},`,
-      "",
-      "Open this link to sign in to Common Pastures:",
-      link,
-      "",
-      `Or enter this code: ${spaced}`,
-      "",
-      note,
-    ].join("\n"),
-    html: emailLayout({
-      preheader: "Tap the button to sign in to Common Pastures.",
-      body: html,
-      footer: "Sent because someone asked to sign in as you on Common Pastures.",
-    }),
-  });
+  return sendDirectEmail(
+    "sign-in",
+    {
+      to,
+      subject: "Sign in to Common Pastures",
+      text: [
+        `Hello ${first},`,
+        "",
+        "Open this link to sign in to Common Pastures:",
+        link,
+        "",
+        `Or enter this code: ${spaced}`,
+        "",
+        note,
+      ].join("\n"),
+      html: emailLayout({
+        preheader: "Tap the button to sign in to Common Pastures.",
+        body: html,
+        footer: "Sent because someone asked to sign in as you on Common Pastures.",
+      }),
+    },
+    person.id
+  );
 }
 
 /** Start a session for a resident whose link or code was just used. */

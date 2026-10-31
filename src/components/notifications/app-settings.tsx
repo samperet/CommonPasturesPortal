@@ -1,21 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, BellOff, Check, Download, Send, Share } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import type { Preferences, Topic } from "@/lib/push/topics";
+import {
+  APP_SHORT,
+  EMAIL_SHORT,
+  NO_EMAIL,
+  REACHED,
+  type AppOutcome,
+  type EmailOutcome,
+} from "@/lib/notifications/shared";
 import { usePush, useInstall } from "@/components/notifications/pwa";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/time";
 
 /**
  * "App & notifications" on your profile: install the app, turn notifications
  * on for this device, and choose what about — and, separately, what you're
- * emailed about (at your directory entry's address); and the pages you follow.
+ * emailed about (at your directory entry's address); the pages you follow;
+ * and what's been sent to you lately, and how (`/api/me/notifications`).
  */
 export function AppSettings() {
   const { toast } = useToast();
@@ -191,6 +201,7 @@ export function AppSettings() {
 
       <EmailChoices />
       <FollowedPages />
+      <SentToYou />
     </Card>
   );
 }
@@ -340,6 +351,85 @@ function EmailChoices() {
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+type SentData = {
+  days: number;
+  sent: {
+    id: string;
+    at: string;
+    topic: string;
+    title: string;
+    url: string | null;
+    app: AppOutcome | null;
+    email: EmailOutcome | null;
+    noEmail: keyof typeof NO_EMAIL | null;
+  }[];
+};
+
+/** What's been sent to you lately, and how each reached you (or why it didn't). */
+function SentToYou() {
+  const { data } = useQuery({
+    queryKey: ["me-notifications"],
+    queryFn: () => apiFetch<SentData>("/api/me/notifications"),
+  });
+  const [all, setAll] = useState(false);
+  if (!data) return null;
+  const shown = all ? data.sent : data.sent.slice(0, 8);
+  const tone = (reached: boolean) => (reached ? "text-pine" : "text-muted");
+  return (
+    <section className="flex flex-col gap-2" data-sent-to-you>
+      <h3 className="text-sm font-semibold text-foreground">Sent to you lately</h3>
+      <p className="-mt-1 text-xs text-muted">
+        The last {data.days} days: each notification that was for you, and how it reached you — or
+        why it didn&apos;t.
+      </p>
+      {shown.length ? (
+        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+          {shown.map((entry) => (
+            <li key={entry.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
+              <span className="text-xs text-muted">
+                {entry.topic} · {timeAgo(entry.at)}
+              </span>
+              {entry.url ? (
+                <Link href={entry.url} className="text-foreground hover:underline">
+                  {entry.title}
+                </Link>
+              ) : (
+                <span className="text-foreground">{entry.title}</span>
+              )}
+              <span className="text-xs">
+                {/* A sign-in link is only ever emailed. */}
+                {entry.app ? (
+                  <>
+                    <span className={tone(REACHED.app.includes(entry.app))}>
+                      App: {APP_SHORT[entry.app]}
+                    </span>{" "}
+                    ·{" "}
+                  </>
+                ) : null}
+                <span className={tone(!!entry.email && REACHED.email.includes(entry.email))}>
+                  Email:{" "}
+                  {entry.email
+                    ? EMAIL_SHORT[entry.email]
+                    : entry.noEmail
+                      ? NO_EMAIL[entry.noEmail].toLowerCase()
+                      : "not sent"}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted">Nothing yet.</p>
+      )}
+      {data.sent.length > shown.length ? (
+        <Button size="sm" variant="ghost" className="self-start" onClick={() => setAll(true)}>
+          Show all {data.sent.length}
+        </Button>
+      ) : null}
     </section>
   );
 }
