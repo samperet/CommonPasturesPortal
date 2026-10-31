@@ -11,7 +11,7 @@ import { useCircles } from "@/components/directory/use-directory";
 import { useWikiPages } from "@/components/wiki/wiki-client";
 import { useDocsShell } from "@/components/documents/docs-context";
 import { CircleIcon } from "@/components/circles/circle-icon";
-import { subgroupsOf, topLevel } from "@/lib/circles/tiers";
+import { circlePath, parentOf, subgroupsOf, topLevel } from "@/lib/circles/tiers";
 import type { Circle } from "@/lib/circles/types";
 import { isCommunity } from "@/lib/circles/ids";
 import { cn } from "@/lib/utils";
@@ -20,13 +20,16 @@ import { cn } from "@/lib/utils";
  * The documents sidebar: where to look, not the documents themselves — they
  * are in the main list, which the sidebar filters. All documents (and New),
  * your starred and recent ones (`/documents/mine`), your drafts
- * (`/documents?kind=drafts`), then every circle with documents — Community
- * first, then yours, then the rest, by name — each with its sub groups
- * nested inside it (folding away; remembered in this browser). Choosing a
+ * (`/documents?kind=drafts`), then the circles with documents as one tree:
+ * Community at the root, every circle within it (yours first, then the
+ * rest, by name), each with its sub groups nested inside it. Any of them
+ * folds away what's inside it — Community, every circle — remembered in
+ * this browser, and unfolded while what's shown is inside. Choosing a
  * circle lists its documents and its sub groups' (`/documents?circle=`,
- * keeping the kind chosen); on a page, its circle is the one marked. A
- * circle's count is its pages (from the pages list) and its files and
- * proposals (`/api/documents/counts`), its sub groups' included. It reads
+ * keeping the kind chosen); Community lists its own, since "every circle"
+ * is All documents. On a page, its circle is the one marked. A circle's
+ * count is what choosing it lists: its pages (from the pages list) and its
+ * files and proposals (`/api/documents/counts`), with its sub groups'. It reads
  * the address without a Suspense boundary of its own (every route here is
  * rendered on request), so it hydrates with the shell, before the lists it
  * reads have arrived — a later pass would find them and not match the HTML.
@@ -94,30 +97,41 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const total = (circle: Circle) =>
     (own[circle.id] ?? 0) +
     subgroupsOf(all, circle.id).reduce((sum, sub) => sum + (own[sub.id] ?? 0), 0);
-  // Listed: the circles with documents — and the one shown, even when it has none.
-  const listed = (circle: Circle) => total(circle) > 0 || circle.id === active;
+  // A circle's count: what choosing it lists (Community: its own).
+  const countOf = (circle: Circle) =>
+    isCommunity(circle.id) ? own[circle.id] ?? 0 : total(circle);
+  // Listed: the circles with documents, and the one shown even when it has none — and the circles
+  // they're within.
+  const shown = all.find((circle) => circle.id === active);
+  const showing = new Set(shown ? circlePath(all, shown).map((circle) => circle.id) : []);
+  const listed = (circle: Circle) => total(circle) > 0 || showing.has(circle.id);
   const inIt = (circle: Circle) =>
     !!user?.personId && circle.seats.some((seat) => seat.personId === user.personId);
-  const sections = topLevel(all)
-    .filter(
-      (circle) => listed(circle) || subgroupsOf(all, circle.id).some((sub) => sub.id === active)
-    )
-    .sort(
-      (a, b) =>
-        Number(isCommunity(b.id)) - Number(isCommunity(a.id)) ||
-        Number(inIt(b)) - Number(inIt(a)) ||
-        a.name.localeCompare(b.name)
-    );
-  const nested = (circleId: string) =>
-    subgroupsOf(all, circleId)
-      .filter(listed)
-      .sort((a, b) => a.name.localeCompare(b.name));
+  // The circles directly within one: within Community, every circle that isn't a sub group (yours
+  // first); within a circle, its sub groups.
+  const within = (circle: Circle) =>
+    isCommunity(circle.id)
+      ? topLevel(all)
+          .filter((entry) => !isCommunity(entry.id) && listed(entry))
+          .sort((a, b) => Number(inIt(b)) - Number(inIt(a)) || a.name.localeCompare(b.name))
+      : subgroupsOf(all, circle.id)
+          .filter(listed)
+          .sort((a, b) => a.name.localeCompare(b.name));
+  // The tree's root: Community, holding every circle — or, without one, the circles themselves.
+  const community = all.find((circle) => isCommunity(circle.id));
+  const roots = community
+    ? within(community).length || listed(community)
+      ? [community]
+      : []
+    : topLevel(all)
+        .filter(listed)
+        .sort((a, b) => Number(inIt(b)) - Number(inIt(a)) || a.name.localeCompare(b.name));
 
-  // Sub groups show unless you've folded them away — and always while one of them is shown.
+  // What's inside a circle shows unless you've folded it away — and always while what's shown is inside.
   const [folded, setFolded] = useState<Record<string, boolean>>({});
   useEffect(() => setFolded(readFolded()), []);
-  const isOpen = (circleId: string, subs: Circle[]) =>
-    subs.some((sub) => sub.id === active) || !folded[circleId];
+  const isOpen = (circleId: string) =>
+    (showing.has(circleId) && circleId !== active) || !folded[circleId];
   const toggle = (circleId: string) =>
     setFolded((state) => {
       const next = { ...state, [circleId]: !state[circleId] };
@@ -129,28 +143,32 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
       return next;
     });
 
-  /** A circle's link (its documents, in the main list) and, nested inside it, its sub groups. */
+  /** A circle's link (its documents, in the main list) and, nested inside it, the circles within it. */
   const entry = (circle: Circle, depth: number): ReactNode => {
-    const subs = depth === 0 ? nested(circle.id) : [];
-    const open = isOpen(circle.id, subs);
+    const inside = within(circle);
+    const open = isOpen(circle.id);
     const here = circle.id === active;
-    const count = total(circle);
+    const count = countOf(circle);
+    // Rows that could hold others line up with those that do (their fold button's width).
+    const holder = isCommunity(circle.id) || !parentOf(all, circle);
     return (
       <li key={circle.id} data-docs-circle={circle.id} data-depth={depth}>
         <div className="flex items-center gap-0.5">
-          {subs.length ? (
+          {inside.length ? (
             <button
               type="button"
               onClick={() => toggle(circle.id)}
               aria-expanded={open}
-              aria-label={`${open ? "Fold" : "Unfold"} ${circle.name}'s sub groups`}
+              aria-label={`${open ? "Fold" : "Unfold"} ${
+                isCommunity(circle.id) ? "the circles within" : `${circle.name}'s sub groups`
+              }`}
               className={smallButton}
               data-docs-fold={circle.id}
             >
               <ChevronRight className={cn("h-3.5 w-3.5 transition", open && "rotate-90")} />
             </button>
           ) : (
-            <span className={cn("shrink-0", depth ? "w-2" : "w-6")} aria-hidden />
+            <span className={cn("shrink-0", holder ? "w-6" : "w-2")} aria-hidden />
           )}
           <Link
             href={circleHref(circle.id)}
@@ -165,9 +183,9 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <span className="ml-auto pl-2 text-xs font-normal text-muted">{count || ""}</span>
           </Link>
         </div>
-        {subs.length && open ? (
-          <ul className="ml-3 border-l-2 border-border pl-1" data-docs-subgroups={circle.id}>
-            {subs.map((sub) => entry(sub, depth + 1))}
+        {inside.length && open ? (
+          <ul className="ml-3 border-l-2 border-border pl-1" data-docs-within={circle.id}>
+            {inside.map((sub) => entry(sub, depth + 1))}
           </ul>
         ) : null}
       </li>
@@ -231,8 +249,8 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <section data-docs-circles>
         <p className={labelClass}>Circles</p>
-        {sections.length ? (
-          <ul className={panelClass}>{sections.map((circle) => entry(circle, 0))}</ul>
+        {roots.length ? (
+          <ul className={panelClass}>{roots.map((circle) => entry(circle, 0))}</ul>
         ) : (
           <p className="px-1.5 py-1 text-xs text-muted">No documents yet.</p>
         )}

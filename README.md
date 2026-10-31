@@ -530,12 +530,15 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
 - **The sidebar** – beside Documents and every page, a sidebar (as in Outline) says where to look;
   the documents themselves are in the main list, which it filters. **All documents** (with **+**,
   a new page), **Starred and recent** (`/documents/mine`), your **Drafts** (pages not yet
-  published, `/documents?kind=drafts`), then every circle with documents — Community first, then
-  yours, then the rest — each with its sub groups nested inside it (folding away, remembered in the
-  browser) and a count of its pages, files and proposals, its sub groups' included
+  published, `/documents?kind=drafts`), then the circles with documents as one tree: **Community**
+  at the root, every circle within it (yours first, then the rest), each with its sub groups nested
+  inside it. Community folds every circle up into it, and each circle folds its sub groups away
+  (remembered in the browser; unfolded while what's shown is inside). Each has a count of what
+  choosing it lists — its pages, files and proposals, its sub groups' included
   (`GET /api/documents/counts` gives the files and proposals). Choosing a circle lists its documents
   and its sub groups' (`/documents?circle=<id>`; the list asks `/api/documents` with `subs=1`, and
-  **Export all** of it takes the sub groups' too); the circle filter and the Type filter change the
+  **Export all** of it takes the sub groups' too); choosing Community lists its own, since every
+  circle's is **All documents**; the circle filter and the Type filter change the
   address the same way, and reading a page marks its circle. On a wide screen it stays in view and
   **[** hides it, **]** brings it back (remembered in the browser); on a phone a **Browse** button
   slides it in. Over a page's title a trail reads circle › parent › …, and at the end of the page
