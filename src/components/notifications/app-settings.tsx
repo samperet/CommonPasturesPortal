@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, BellOff, Check, Download, Send, Share } from "lucide-react";
+import { Bell, BellOff, Send } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import type { Preferences, Topic } from "@/lib/push/topics";
 import {
@@ -22,8 +22,9 @@ import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/time";
 
 /**
- * "App & notifications" on your profile: install the app, turn notifications
- * on for this device, and choose what about — and, separately, what you're
+ * "Notifications" on your profile (adding CVC as an app is its own section,
+ * `add-as-app.tsx`): turn notifications on for this device, and choose what
+ * about — and, separately, what you're
  * emailed about (at your directory entry's address); the pages you follow;
  * and what's been sent to you lately, and how (`/api/me/notifications`).
  */
@@ -72,7 +73,7 @@ export function AppSettings() {
 
   const needsInstallFirst = install.ios && !install.installed;
 
-  // Arriving from "App & notifications" in the menu: bring this card into view once it has rendered.
+  // Arriving from "Notifications" in the menu: bring this card into view once it has rendered.
   useEffect(() => {
     if (window.location.hash === "#app")
       document.getElementById("app")?.scrollIntoView({ behavior: "smooth" });
@@ -80,31 +81,7 @@ export function AppSettings() {
 
   return (
     <Card id="app" className="flex scroll-mt-24 flex-col gap-5">
-      <h2 className="text-lg font-semibold text-foreground">App &amp; notifications</h2>
-
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Install the app</h3>
-        {install.installed ? (
-          <p className="flex items-center gap-1.5 text-sm text-foreground-light">
-            <Check className="h-4 w-4 text-primary" /> Installed — you&apos;re using the app.
-          </p>
-        ) : install.canPrompt ? (
-          <Button size="sm" className="w-fit gap-1.5" onClick={() => void install.install()}>
-            <Download className="h-4 w-4" /> Install CVC on this device
-          </Button>
-        ) : install.ios ? (
-          <p className="text-sm text-foreground-light">
-            In Safari, tap <Share className="inline h-4 w-4 align-text-bottom" aria-label="Share" />{" "}
-            Share, then <strong>Add to Home Screen</strong>. Open CVC from your home screen to turn
-            on notifications.
-          </p>
-        ) : (
-          <p className="text-sm text-foreground-light">
-            Use your browser&apos;s menu — <strong>Install app</strong> or{" "}
-            <strong>Add to Home screen</strong> — to add CVC to this device.
-          </p>
-        )}
-      </section>
+      <h2 className="text-lg font-semibold text-foreground">Notifications</h2>
 
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold text-foreground">Notifications on this device</h3>
@@ -113,7 +90,7 @@ export function AppSettings() {
         ) : !push.supported ? (
           <p className="text-sm text-foreground-light">
             {needsInstallFirst
-              ? "On iPhone and iPad, notifications work once CVC is on your home screen (see above). Open it from there, then come back here."
+              ? "On iPhone and iPad, notifications work once CVC is on your home screen (Add CVC as an app, above). Open it from there, then come back here."
               : "This browser can't show notifications. Try Chrome, Edge, Firefox, or Safari."}
           </p>
         ) : push.permission === "denied" ? (

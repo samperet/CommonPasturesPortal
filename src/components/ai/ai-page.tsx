@@ -8,8 +8,8 @@ import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
 
 /**
- * The AI assistants page (`/mcp`; `/ai` and `/MCP` are sent there; in the
- * menu under your name, and in search): how to connect an
+ * The AI assistants page (`/mcp`; `/ai` and `/MCP` are sent there; found
+ * through search, no longer in the menu under your name): how to connect an
  * assistant — Claude on the web, phone or desktop, Claude Code,
  * ChatGPT, anything else that speaks MCP — step by step, and your keys
  * (`ai-keys.tsx`). The connector's address comes from the keys route.

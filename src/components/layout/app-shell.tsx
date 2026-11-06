@@ -40,6 +40,7 @@ import { useSession, useViewAs } from "@/lib/auth/client";
 import { setUpPwa } from "@/components/notifications/pwa";
 import { SectionArt, hasSectionArt } from "@/components/layout/section-art";
 import { InstallHelp } from "@/components/layout/install-help";
+import { InstallPrompt } from "@/components/notifications/add-as-app";
 import { Loading } from "@/components/ui/status";
 import { Pill } from "@/components/ui/pill";
 
@@ -386,6 +387,7 @@ export function AppShell({
         {wikiHost ? null : <AppreciationsFooter />}
         <LadybugButton />
         <PresenceHeartbeat />
+        {user ? <InstallPrompt /> : null}
         {searching && user ? <SearchPalette onClose={closeSearch} /> : null}
       </div>
     </TourProvider>

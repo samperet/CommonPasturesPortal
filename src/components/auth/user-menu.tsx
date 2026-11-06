@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  Bot,
   Bell,
   BellRing,
   Bug,
@@ -19,6 +18,7 @@ import {
   NotebookPen,
   ShieldCheck,
   Siren,
+  Smartphone,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,12 +30,15 @@ import { Avatar } from "@/components/profile/avatar";
 import { useCircles } from "@/components/directory/use-directory";
 import { hasAlert } from "@/lib/circles/features";
 import { SendAlertFrom } from "@/components/alerts/send-alert";
+import { AddAsAppDialog } from "@/components/notifications/add-as-app";
+import { useInstall } from "@/components/notifications/pwa";
 
 /**
- * The menu under your name: your profile and settings, the tour, the pages
- * your roles open (Secretary, Homes for sale, the admin pages), viewing as
- * a resident (admins), signing out — and, at the top, **Send an alert** from
- * each circle with an Alert module (the Safety Crew's), for anyone.
+ * The menu under your name: your profile, your notifications, **Add as an
+ * app** (its steps in a popup, until you're using the app), the tour, the
+ * pages your roles open (Secretary, Homes for sale, the admin pages),
+ * viewing as a resident (admins), signing out — and, last, **Send an alert**
+ * from each circle with an Alert module (the Safety Crew's), for anyone.
  */
 
 export function UserMenu() {
@@ -50,6 +53,9 @@ export function UserMenu() {
   // Circles with an Alert module (only admins add one): anyone can send an alert from here.
   const alertCircles = useCircles()?.filter(hasAlert) ?? [];
   const [alerting, setAlerting] = useState<{ id: string; name: string } | null>(null);
+  // Add as an app: its steps in a popup (not shown once you're using the app).
+  const [addingApp, setAddingApp] = useState(false);
+  const { installed } = useInstall();
   // Residents who can sign in, for "View as" (only loaded once an admin opens the picker).
   const { people, isLoading: peopleLoading } = usePeople({ enabled: picking });
 
@@ -107,14 +113,23 @@ export function UserMenu() {
             </Button>
             <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
               <Link href="/profile#app" onClick={() => setOpen(false)}>
-                <Bell className="h-4 w-4" /> App &amp; notifications
+                <Bell className="h-4 w-4" /> Notifications
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
-              <Link href="/mcp" onClick={() => setOpen(false)} data-menu-ai>
-                <Bot className="h-4 w-4" /> AI assistants
-              </Link>
-            </Button>
+            {installed ? null : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mb-1 w-full justify-start gap-2"
+                onClick={() => {
+                  setOpen(false);
+                  setAddingApp(true);
+                }}
+                data-menu-install
+              >
+                <Smartphone className="h-4 w-4" /> Add as an app
+              </Button>
+            )}
             <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
               <Link href="/welcome" onClick={() => setOpen(false)}>
                 <Globe className="h-4 w-4" /> Public homepage
@@ -260,6 +275,7 @@ export function UserMenu() {
         </>
       ) : null}
       {alerting ? <SendAlertFrom circle={alerting} onClose={() => setAlerting(null)} /> : null}
+      {addingApp ? <AddAsAppDialog onClose={() => setAddingApp(false)} /> : null}
     </div>
   );
 }

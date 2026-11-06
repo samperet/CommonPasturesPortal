@@ -742,7 +742,7 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   when it changes: when someone finishes editing it, restores an earlier version, or makes a
   version the page — at most once an hour a page, never about your own change
   (`lib/wiki/follows.ts`, `wiki/follows.json`; the **following** topic: push, and email only if
-  chosen). Your profile's **App & notifications** lists **Pages you follow**, each with
+  chosen). Your profile's **Notifications** lists **Pages you follow**, each with
   **Unfollow** (`GET /api/me/follows`, `PUT /api/wiki/pages/<slug>/follow`). The toolbar's one
   **Link** menu offers **Web address…** (a link on the selected words), **A page or document…**
   (find a page or an uploaded file; a page can be linked or shown here, a file is linked), and
@@ -862,8 +862,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   blocks) into a Paragraph, a **Quote** (shown between two curved strokes, like parentheses), a
   **Callout** (set apart by a light green dotted line with rounded corners; written
   `:::callout` … `:::`, keeping bold and italic), or a heading.
-- **AI assistants (MCP)** – its own page, `/mcp` (`/ai` and `/MCP` redirect there; **AI assistants** in
-  the menu under your name, and a search result): what an assistant can and can't do, step-by-step
+- **AI assistants (MCP)** – its own page, `/mcp` (`/ai` and `/MCP` redirect there, and it's a search
+  result; it's no longer in the menu under your name): what an assistant can and can't do, step-by-step
   instructions for Claude (web, phone, desktop), ChatGPT, Claude Code and anything else that
   speaks MCP, the tools it gets, and your keys (`components/ai/ai-page.tsx`, `ai-keys.tsx`).
   There, make a **key** for an AI assistant you use — Claude, ChatGPT, Claude Code, anything that
@@ -886,12 +886,24 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   shown once (with the address for Claude.ai and ChatGPT and the `claude mcp add` command for
   Claude Code); only its hash is kept (`mcp/keys.json`, up to five a resident, with when each was
   last used); **Take away** shuts that assistant out at once.
-- **Put CVC on your home screen** – the bottom of the phone menu (☰) folds out plain, large-print
-  steps for adding CVC to the home screen as an app (`components/layout/install-help.tsx`): an
-  **Install CVC now** button where the browser offers one, Safari's Share → **Add to Home Screen**
-  on an iPhone, or the browser's menu → **Add to Home screen** elsewhere. Only phones see it
-  (`isPhone` in `components/notifications/pwa.ts`: a phone's browser, or a touch screen as narrow
-  as one), and only until CVC is installed there; laptops and tablets never do.
+- **Add CVC as an app** – one set of steps for the device in hand (`InstallSteps` in
+  `components/notifications/add-as-app.tsx`): an **Install CVC now** button where the browser
+  offers one; on an iPhone, Safari's Share (behind ⋯ on the newest) → **Add to Home Screen**; on
+  other phones, the browser's menu → **Add to Home screen** / **Install app**; on a computer,
+  Chrome's or Edge's install, or Safari's File → Add to Dock. They're offered in four places:
+  - **Add as an app** in the menu under your name opens them in a popup (until you're using the
+    app on that device).
+  - **Add CVC as an app** is its own section on your profile (`/profile#install`), above
+    **Notifications**.
+  - **On a phone that isn't using the app**, a popup offers them a moment after a page loads
+    (`InstallPrompt`). It never appears on the visit with the welcome tour (which shows the same
+    steps), while viewing as someone, or on sign-in and join pages. **Not now** keeps it away for
+    two weeks, **I've added it already** for good on that browser (`cvc-install-prompt` in the
+    browser's storage).
+  - **The phone menu (☰)** folds them out in large print (`components/layout/install-help.tsx`).
+
+  "A phone" is `isPhone` in `components/notifications/pwa.ts` (a phone's browser, or a touch
+  screen as narrow as one); "using the app" is CVC opened from its icon (`isStandalone`).
 - **Right-click menu** – in the editor, right-clicking offers cut, copy, paste, bold, italic,
   strikethrough, code, highlight (or, inside a highlight, change its colour or remove it), link,
   **Link to a page…** (the selected words become a link to a page you pick — this circle's first —
@@ -1145,7 +1157,7 @@ from then on, so re-importing the directory never overwrites circle changes.
   can send one: a short message ("what's happening, where, and what people should do"), to the
   circle's members (the default) or to **Everyone at CVC**. A confirmation says how many people it
   will reach before anything is sent. Each gets a push notification and an email (topic **Safety
-  alerts**, on for both by default, which anyone can turn off under **App & notifications**) —
+  alerts**, on for both by default, which anyone can turn off under **Notifications**) —
   members are emailed even if they've never signed in; the sender isn't. **Send an alert** is also
   at the bottom of the menu under your name, set apart by a line, on every page. Each person can send one alert a minute
   (`GET`/`POST /api/circles/<id>/alerts`; `lib/alerts`; the last 50 kept in
@@ -1212,7 +1224,7 @@ from then on, so re-importing the directory never overwrites circle changes.
   Safari → Share → Add to Home Screen. The service worker caches nothing (every page needs a fresh,
   signed-in response); it exists for installing and for notifications. The manifest, service
   worker, and icons are served without sign-in, since browsers fetch them without cookies.
-- **Push notifications** – residents turn them on per device under **App & notifications** on
+- **Push notifications** – residents turn them on per device under **Notifications** on
   their profile (or from a one-time prompt on the dashboard, shown only in the installed app), and choose what to hear about: new
   discussions, replies in discussions they started or joined, appreciations, photos, new
   recommendations and comments on theirs, new loan-library items, and safety alerts. Nobody is notified about
@@ -1278,7 +1290,7 @@ from then on, so re-importing the directory never overwrites circle changes.
   many have it on — with **Who would get one now?**, the plan for everyone or a circle's members,
   nothing sent. **Opt-ins & outs** is the change log. (`GET /api/admin/notifications?days=`,
   `GET /api/admin/notifications/preview?topic=&circle=`.)
-- **Sent to you lately** – each resident's **App & notifications** lists what was sent to them in
+- **Sent to you lately** – each resident's **Notifications** lists what was sent to them in
   the last 30 days and how it reached them, or why it didn't (`GET /api/me/notifications`).
 
 ## Circle forums

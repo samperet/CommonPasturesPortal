@@ -106,8 +106,13 @@ export const PLACES: { href: string; title: string; about: string; admin?: boole
   { href: "/profile", title: "Your profile", about: "edit my details photo bio about me" },
   {
     href: "/profile#app",
-    title: "App & notifications",
-    about: "install home screen push notifications email settings preferences",
+    title: "Notifications",
+    about: "push notifications email settings preferences what you hear about",
+  },
+  {
+    href: "/profile#install",
+    title: "Add CVC as an app",
+    about: "install home screen phone app icon iphone android",
   },
   {
     href: "/mcp",

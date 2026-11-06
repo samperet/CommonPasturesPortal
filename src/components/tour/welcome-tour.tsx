@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { LadybugIcon } from "@/components/feedback/ladybug-icon";
 import { SectionArt } from "@/components/layout/section-art";
-import { isIos, useInstall } from "@/components/notifications/pwa";
+import { useInstall } from "@/components/notifications/pwa";
+import { InstallSteps } from "@/components/notifications/add-as-app";
 import { cn } from "@/lib/utils";
 
 /**
@@ -122,45 +123,11 @@ const badge = (icon: ReactNode) => (
   </span>
 );
 
-/** How to add the app to this device's home screen. */
+/** How to add the app to this device's home screen: the same steps as everywhere else. */
 function HomeScreenHow() {
-  const { canPrompt, install } = useInstall();
-  // The tour only opens in the browser, so the device can be read at once.
-  const [ios] = useState(isIos);
-  const [android] = useState(() => /Android/i.test(navigator.userAgent));
-  const iphone = (
-    <>
-      Tap <strong>Share</strong>, then <strong>More</strong>, then{" "}
-      <strong>Add to Home Screen</strong>.
-    </>
-  );
-  const androidWay = (
-    <>
-      Open the browser&apos;s menu (<strong>⋮</strong>) and choose{" "}
-      <strong>Add to Home screen</strong>.
-    </>
-  );
   return (
-    <span className="mt-3 flex flex-col gap-2 rounded-xl bg-accent/60 px-3 py-2.5 text-sm text-foreground">
-      {ios ? (
-        <span>{iphone}</span>
-      ) : android ? (
-        <span>{androidWay}</span>
-      ) : (
-        <>
-          <span>
-            <strong>On an iPhone:</strong> {iphone}
-          </span>
-          <span>
-            <strong>On Android:</strong> {androidWay}
-          </span>
-        </>
-      )}
-      {canPrompt ? (
-        <Button size="sm" className="w-fit gap-1.5" onClick={() => void install()}>
-          <Smartphone className="h-4 w-4" /> Add it now
-        </Button>
-      ) : null}
+    <span className="mt-3 flex flex-col gap-2 rounded-xl bg-accent/60 px-3 py-2.5">
+      <InstallSteps size="compact" />
     </span>
   );
 }
