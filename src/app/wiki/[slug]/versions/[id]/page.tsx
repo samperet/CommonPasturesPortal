@@ -1,13 +1,9 @@
-import { Suspense } from "react";
-import { PerspectivePage } from "@/components/wiki/perspective-page";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "A version of a page · Common Pastures" };
-
-/** Someone's alternative version of a page. */
-export default function PerspectiveRoute({ params }: { params: { slug: string; id: string } }) {
-  return (
-    <Suspense>
-      <PerspectivePage key={params.id} slug={params.slug} id={params.id} />
-    </Suspense>
-  );
+/**
+ * Pages' alternative versions are gone: an old link to one opens the page
+ * itself.
+ */
+export default function VersionPage({ params }: { params: { slug: string } }) {
+  redirect(`/wiki/${encodeURIComponent(params.slug)}`);
 }

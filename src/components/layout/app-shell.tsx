@@ -261,7 +261,7 @@ export function AppShell({
               {viewAs || wikiHost ? null : (
                 <MessagesButton active={pathname.startsWith("/messages")} />
               )}
-              <UserMenu />
+              {/* The menu (☰) sits just left of your name, so the account button stays at the edge. */}
               {wikiHost ? null : (
                 <Button
                   variant="outline"
@@ -272,6 +272,7 @@ export function AppShell({
                   <Menu className="h-4 w-4" />
                 </Button>
               )}
+              <UserMenu />
             </div>
             <div className="hidden items-center gap-2 xl:flex">
               {wikiHost ? (

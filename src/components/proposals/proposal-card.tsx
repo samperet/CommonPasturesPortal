@@ -214,10 +214,6 @@ export function ProposalActions({
             id,
             title,
           }))}
-          initialVersions={(proposal.versions ?? []).map(({ pageId, perspectiveId }) => ({
-            pageId,
-            perspectiveId,
-          }))}
           circleName={proposal.circleName}
           submitLabel="Save"
           saving={edit.isPending}

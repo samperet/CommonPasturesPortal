@@ -94,17 +94,10 @@ export async function uploadImage(url: string, blob: Blob): Promise<void> {
  * anything else is downscaled and re-encoded as JPEG first.
  */
 /** A photo for a wiki page (by its address). */
-export async function uploadWikiImage(
-  pageSlug: string,
-  file: File,
-  perspectiveId?: string
-): Promise<string> {
+export async function uploadWikiImage(pageSlug: string, file: File): Promise<string> {
   const keep = file.type === "image/png" && file.size <= 1.5 * 1024 * 1024;
   const blob = keep ? file : await preparePhoto(file, 2000);
-  const query = new URLSearchParams({
-    page: pageSlug,
-    ...(perspectiveId ? { perspective: perspectiveId } : {}),
-  });
+  const query = new URLSearchParams({ page: pageSlug });
   const res = await fetch(`/api/wiki/images?${query}`, {
     method: "POST",
     headers: { "Content-Type": blob.type },

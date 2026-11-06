@@ -19,12 +19,11 @@ import { proposalCirclesQuery, type ProposalDraft } from "./data";
  * propose to), a title, the proposal itself (Markdown; links to pages with
  * [[…]] work), the day it's to be decided (if known), and the documents it's
  * about — pages and files found by title — which show as proposed, and then
- * consented, with it. A page with alternative versions offers them, to put
- * to the meeting with the page.
+ * consented, with it. (Alternative versions of pages are gone: a proposal
+ * changed here keeps any it already put forward.)
  */
 
 export type ChosenDocument = DocumentRef & { title: string };
-export type ChosenVersion = { pageId: string; perspectiveId: string };
 
 type Found = {
   pages: { id: string; title: string; circleName: string }[];
@@ -126,73 +125,9 @@ function DocumentsField({
   );
 }
 
-/** The alternative versions of the pages chosen, to tick those put to the meeting with them. */
-function VersionsField({
-  pages,
-  chosen,
-  onChange,
-}: {
-  pages: ChosenDocument[];
-  chosen: ChosenVersion[];
-  onChange: (chosen: ChosenVersion[]) => void;
-}) {
-  const ids = pages.map((page) => page.id).sort();
-  const found = useQuery({
-    queryKey: ["wiki-perspectives", "for", ids.join(",")],
-    enabled: ids.length > 0,
-    queryFn: () =>
-      apiFetch<{ versions: { pageId: string; perspectives: PerspectiveSummary[] }[] }>(
-        `/api/wiki/perspectives?pages=${ids.join(",")}`
-      ),
-  }).data?.versions;
-  if (!found?.length) return null;
-  const has = (perspectiveId: string) =>
-    chosen.some((entry) => entry.perspectiveId === perspectiveId);
-  return (
-    <div className="flex flex-col gap-2" data-proposal-versions>
-      {found.map(({ pageId, perspectives }) => (
-        <fieldset key={pageId} className="flex flex-col gap-1 rounded-lg bg-accent/40 px-3 py-2">
-          <legend className="sr-only">
-            Versions of {pages.find((page) => page.id === pageId)?.title}
-          </legend>
-          <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-            <GitBranch className="h-3.5 w-3.5 text-primary" aria-hidden />
-            Put versions of “{pages.find((page) => page.id === pageId)?.title}” to the meeting too
-          </p>
-          {perspectives.map((perspective) => (
-            <label
-              key={perspective.id}
-              className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            >
-              <input
-                type="checkbox"
-                checked={has(perspective.id)}
-                onChange={(event) =>
-                  onChange(
-                    event.target.checked
-                      ? [...chosen, { pageId, perspectiveId: perspective.id }]
-                      : chosen.filter((entry) => entry.perspectiveId !== perspective.id)
-                  )
-                }
-                className="h-4 w-4 accent-primary"
-              />
-              <span className="min-w-0 truncate">
-                <span className="font-medium">{versionOf(perspective.createdBy)}</span>
-                <span className="text-muted"> · {perspective.name}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      ))}
-    </div>
-  );
-}
-
 type FormProps = {
   initial: Omit<ProposalDraft, "documents" | "versions">;
   initialDocuments: ChosenDocument[];
-  /** Alternative versions of its pages put forward (none to start with, if not given). */
-  initialVersions?: ChosenVersion[];
   /** The circle's name while the list of circles loads. */
   circleName: string;
   submitLabel: string;
@@ -205,7 +140,6 @@ type FormProps = {
 export function ProposalForm({
   initial,
   initialDocuments,
-  initialVersions = [],
   circleName,
   submitLabel,
   saving,
@@ -221,8 +155,6 @@ export function ProposalForm({
   const [body, setBody] = useState(initial.body);
   const [decideOn, setDecideOn] = useState(initial.decideOn ?? "");
   const [documents, setDocuments] = useState<ChosenDocument[]>(initialDocuments);
-  const [versions, setVersions] = useState<ChosenVersion[]>(initialVersions);
-  const pages = documents.filter((doc) => doc.kind === "page");
   const options =
     !circleId || circles?.some((circle) => circle.id === circleId)
       ? circles ?? []
@@ -239,10 +171,6 @@ export function ProposalForm({
             body: body.trim(),
             decideOn: decideOn || null,
             documents: documents.map(({ kind, id }) => ({ kind, id })),
-            // Only versions of pages still chosen.
-            versions: versions.filter((version) =>
-              pages.some((page) => page.id === version.pageId)
-            ),
           });
       }}
       data-proposal-form
@@ -286,7 +214,6 @@ export function ProposalForm({
         <span className="text-xs text-muted">
           They show as proposed with it, and as consented once the circle consents.
         </span>
-        <VersionsField pages={pages} chosen={versions} onChange={setVersions} />
       </div>
       <label className="flex flex-col gap-1 text-sm text-foreground">
         To be decided on (if you know)

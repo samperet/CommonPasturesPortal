@@ -176,12 +176,6 @@ export const RichEditor = forwardRef<
     transcribing?: boolean;
     /** The toolbar's **Who's present**: choose the people present (meeting notes). */
     onPresent?: () => void;
-    /**
-     * Editing someone's alternative version of the page (a perspective): no
-     * polls, proposals, meeting tools, file uploads, or new pages; its photos
-     * are the version's author's to add.
-     */
-    perspectiveId?: string;
   }
 >(function RichEditor(
   {
@@ -199,11 +193,9 @@ export const RichEditor = forwardRef<
     onTranscribe,
     transcribing = false,
     onPresent,
-    perspectiveId,
   },
   ref
 ) {
-  const perspective = !!perspectiveId;
   const { toast } = useToast();
   const host = useRef<HTMLDivElement>(null);
   const [linking, setLinking] = useState(false);
@@ -223,41 +215,37 @@ export const RichEditor = forwardRef<
     [circleId, circleName, pageSlug]
   );
   // The editor is set up once, so it reaches the latest props through refs.
-  const latest = useRef({ onChange, onError, onCreatePage, pageSlug, perspectiveId });
-  latest.current = { onChange, onError, onCreatePage, pageSlug, perspectiveId };
+  const latest = useRef({ onChange, onError, onCreatePage, pageSlug });
+  latest.current = { onChange, onError, onCreatePage, pageSlug };
   const mention = useRef<MentionParams>({
     circleId,
     circleName,
     pageId,
     onCreatePage,
-    canCreate: !perspective,
+    canCreate: true,
   });
   mention.current = {
     circleId,
     circleName,
     pageId,
     onCreatePage: (title) => latest.current.onCreatePage(title),
-    canCreate: !perspective,
+    canCreate: true,
   };
-  // The / menu's items: the page's own (polls, proposals…) only outside an alternative version.
-  const canUpload = documentsOn && !perspective;
+  // The / menu's items.
+  const canUpload = documentsOn;
   const slash = useRef<SlashItem[]>([]);
   slash.current = slashItems({
     onImage: () => setImaging(true),
     onPage: () => setEmbedding(true),
-    ...(perspective
-      ? {}
-      : {
-          onPoll: () => setPolling(true),
-          onProposal: () => setProposing(true),
-          onPresent: () => onPresent?.(),
-          ...(canUpload ? { onUpload: () => setAddingDocument(true) } : {}),
-        }),
+    onPoll: () => setPolling(true),
+    onProposal: () => setProposing(true),
+    onPresent: () => onPresent?.(),
+    ...(canUpload ? { onUpload: () => setAddingDocument(true) } : {}),
   });
   // Photos chosen from the toolbar, pasted, or dropped in go to the page's photos.
   const uploadPhoto = async (file: File) => {
     try {
-      return await uploadWikiImage(latest.current.pageSlug, file, latest.current.perspectiveId);
+      return await uploadWikiImage(latest.current.pageSlug, file);
     } catch (error) {
       toast({
         title: "Could not add the photo",
@@ -359,7 +347,6 @@ export const RichEditor = forwardRef<
         {editor ? (
           <Toolbar
             editor={editor}
-            perspective={perspective}
             canUpload={canUpload}
             transcribing={transcribing}
             onLink={() => setLinking(true)}
@@ -403,7 +390,7 @@ export const RichEditor = forwardRef<
           editor={editor}
           circle={{ id: circleId, name: circleName }}
           pageId={pageId}
-          canCreate={!perspective}
+          canCreate
           onCreatePage={onCreatePage}
           onClose={() => setLinkingWords(false)}
         />
@@ -462,7 +449,6 @@ export const RichEditor = forwardRef<
 
 function Toolbar({
   editor,
-  perspective,
   canUpload,
   transcribing,
   onLink,
@@ -478,7 +464,6 @@ function Toolbar({
   children,
 }: {
   editor: Editor;
-  perspective: boolean;
   canUpload: boolean;
   transcribing: boolean;
   onLink: () => void;
@@ -540,21 +525,17 @@ function Toolbar({
       >
         <ChevronsUpDown className="h-4 w-4" />
       </ToolbarButton>
-      {perspective ? null : (
-        <>
-          <ToolbarButton title="Add a poll" onClick={onPoll}>
-            <BarChart3 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton title="Add a proposal" onClick={onProposal}>
-            <Handshake className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarSeparator />
-          <ToolbarButton title="Who's present" onClick={onPresent}>
-            <Users className="h-4 w-4" />
-          </ToolbarButton>
-          <TranscriptToggle on={transcribing} onToggle={onTranscribe} />
-        </>
-      )}
+      <ToolbarButton title="Add a poll" onClick={onPoll}>
+        <BarChart3 className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton title="Add a proposal" onClick={onProposal}>
+        <Handshake className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <ToolbarButton title="Who's present" onClick={onPresent}>
+        <Users className="h-4 w-4" />
+      </ToolbarButton>
+      <TranscriptToggle on={transcribing} onToggle={onTranscribe} />
       <TableTools editor={editor} />
       {children}
     </div>

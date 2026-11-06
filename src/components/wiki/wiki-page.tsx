@@ -12,7 +12,10 @@ import {
   History as HistoryIcon,
   ListTree,
   MessageSquarePlus,
+  FileDown,
   Move as MoveIcon,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
   Plus,
   RotateCcw,
@@ -44,7 +47,6 @@ import { useWikiPages } from "@/components/wiki/wiki-client";
 import { wikiPageQuery, type PageResponse } from "@/components/wiki/link-data";
 import { PageSettings } from "@/components/wiki/page-settings";
 import { PageHistory } from "@/components/wiki/page-history";
-import { PerspectivesBar } from "@/components/wiki/perspectives-bar";
 import { labelledCircles } from "@/lib/circles/tiers";
 import { Button } from "@/components/ui/button";
 import { CircleIcon } from "@/components/circles/circle-icon";
@@ -62,8 +64,34 @@ import { FollowButton } from "@/components/wiki/follow-button";
 import { useDocsShell } from "@/components/documents/docs-context";
 import { MoveDialog, type PageMove } from "@/components/documents/move-dialog";
 import { ancestorsOf, childrenOf } from "@/lib/wiki/tree";
+import { cn } from "@/lib/utils";
 
 const NO_THREADS: never[] = [];
+
+/**
+ * Save as PDF: the browser's print window (where "Save as PDF" is a
+ * destination; on a phone, its print or share sheet), with the print layout
+ * in `globals.css` — just the page, no controls or comments. The file is
+ * named after the page (the window's title while printing), and folded
+ * sections are opened so nothing is left out; both are put back afterwards.
+ */
+function saveAsPdf(title: string) {
+  const before = document.title;
+  const folded = Array.from(
+    document.querySelectorAll<HTMLDetailsElement>("[data-page-sheet] details:not([open])")
+  );
+  const restore = () => {
+    document.title = before;
+    folded.forEach((section) => (section.open = false));
+    window.removeEventListener("afterprint", restore);
+  };
+  folded.forEach((section) => (section.open = true));
+  document.title = title;
+  window.addEventListener("afterprint", restore);
+  window.print();
+}
+/** Whether the side column (On this page, comments) was hidden, remembered in this browser. */
+const SIDE_KEY = "cvc-page-side";
 const NO_IDS = new Set<string>();
 
 /** A floating "Comment" button over selected text on the page. */
@@ -168,6 +196,23 @@ export function WikiPageClient({ slug }: { slug: string }) {
   const [mode, setMode] = useState<"read" | "edit">(params.get("edit") ? "edit" : "read");
   const [showHistory, setShowHistory] = useState(false);
   const [pendingQuote, setPendingQuote] = useState<string | null>(null);
+  // The side column (On this page, comments) on a wide screen: hidden on request, remembered in this browser.
+  const [sideOpen, setSideOpen] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SIDE_KEY) === "closed") setSideOpen(false);
+    } catch {
+      // Private browsing: it starts open.
+    }
+  }, []);
+  const showSide = (open: boolean) => {
+    setSideOpen(open);
+    try {
+      localStorage.setItem(SIDE_KEY, open ? "open" : "closed");
+    } catch {
+      // Not remembered, then.
+    }
+  };
   const [activeId, setActiveId] = useState<string | null>(null);
   const article = useRef<HTMLDivElement>(null);
 
@@ -399,6 +444,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
   // Show a thread's passage on the page, or a passage's thread in the comments.
   const activate = (id: string) => {
     setActiveId(id);
+    setSideOpen(true);
     const range = ranges.current.get(id);
     if (range) {
       const rect = range.getBoundingClientRect();
@@ -596,11 +642,21 @@ export function WikiPageClient({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         {back}
         <div className="flex flex-wrap items-center gap-2">
           <StarButton doc={{ kind: "page", id: page.id }} title={page.title} />
           <FollowButton slug={slug} following={!!data?.following} />
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => saveAsPdf(page.title)}
+            title="Opens the print window — choose Save as PDF there"
+            data-page-pdf
+          >
+            <FileDown className="h-4 w-4" /> Save as PDF
+          </Button>
           {canManage ? (
             <Button
               size="sm"
@@ -629,10 +685,32 @@ export function WikiPageClient({ slug }: { slug: string }) {
               <Pencil className="h-4 w-4" /> Edit
             </Button>
           ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            className="hidden gap-1.5 lg:inline-flex"
+            onClick={() => showSide(!sideOpen)}
+            aria-expanded={sideOpen}
+            aria-controls="page-side"
+            title={sideOpen ? "Hide On this page and Comments" : "Show On this page and Comments"}
+            data-page-side-toggle
+          >
+            {sideOpen ? (
+              <PanelRightClose className="h-4 w-4" aria-label="Hide the side column" />
+            ) : (
+              <>
+                <PanelRightOpen className="h-4 w-4" aria-hidden /> Comments
+                {threads.length ? ` (${threads.length})` : ""}
+              </>
+            )}
+          </Button>
         </div>
       </div>
       {showHistory ? historyPanel : null}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div
+        className={cn("grid items-start gap-6", sideOpen && "lg:grid-cols-[minmax(0,1fr)_20rem]")}
+        data-page-side={sideOpen ? "open" : "closed"}
+      >
         <article className="document-sheet flex min-w-0 flex-col" data-page-sheet>
           {/* The page's head: its circle, title, date, and where it stands with the circle. */}
           <header className="flex flex-col items-center gap-3 border-b border-border/70 px-6 pb-7 pt-9 text-center sm:px-14">
@@ -684,7 +762,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
               <StagePill page={page} />
               <EditedSinceProposed page={page} />
               {othersEditing.length ? (
-                <Pill tone="live" data-live-editors>
+                <Pill tone="live" className="print:hidden" data-live-editors>
                   <Pencil className="h-3 w-3" aria-hidden />{" "}
                   {othersEditing.map((editor) => editor.name).join(", ")}{" "}
                   {othersEditing.length === 1 ? "is" : "are"} editing
@@ -702,24 +780,25 @@ export function WikiPageClient({ slug }: { slug: string }) {
                 className="justify-center"
               />
             ) : null}
-            {canConsent || canEdit ? (
-              <StageControls
-                page={page}
-                slug={slug}
-                circleName={circle?.name ?? "The circle"}
-                canEdit={canEdit}
-                canConsent={canConsent}
-                onSaved={saved}
-              />
-            ) : null}
-            {meetingPanel}
-            <PerspectivesBar slug={slug} />
+            <div className="contents print:hidden">
+              {canConsent || canEdit ? (
+                <StageControls
+                  page={page}
+                  slug={slug}
+                  circleName={circle?.name ?? "The circle"}
+                  canEdit={canEdit}
+                  canConsent={canConsent}
+                  onSaved={saved}
+                />
+              ) : null}
+              {meetingPanel}
+            </div>
           </header>
 
           <div className="document-body w-full">
             {toc.length >= 3 ? (
               <nav
-                className="mb-6 rounded-lg border border-border bg-accent/30 p-3 text-sm lg:hidden"
+                className="mb-6 rounded-lg border border-border bg-accent/30 p-3 text-sm lg:hidden print:hidden"
                 aria-label="On this page"
               >
                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted">
@@ -743,7 +822,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
           </div>
           {inside.length || (canManage && shell) ? (
             <section
-              className="mx-auto w-full max-w-[46rem] px-5 pb-8 sm:px-14"
+              className="mx-auto w-full max-w-[46rem] px-5 pb-8 sm:px-14 print:hidden"
               aria-label="Pages inside"
               data-page-children
             >
@@ -784,10 +863,12 @@ export function WikiPageClient({ slug }: { slug: string }) {
               </ul>
             </section>
           ) : null}
-          <PageTranscript transcript={page.transcript} />
+          <div className="print:hidden">
+            <PageTranscript transcript={page.transcript} />
+          </div>
 
           {canManage ? (
-            <footer className="flex justify-end border-t border-border/70 px-6 py-3 sm:px-14">
+            <footer className="flex justify-end border-t border-border/70 px-6 py-3 sm:px-14 print:hidden">
               <button
                 type="button"
                 className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-destructive"
@@ -809,7 +890,13 @@ export function WikiPageClient({ slug }: { slug: string }) {
           ) : null}
         </article>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:-mx-2 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:px-2 lg:pb-4 lg:pt-2">
+        <aside
+          id="page-side"
+          className={cn(
+            "flex flex-col gap-4 lg:sticky lg:top-20 lg:-mx-2 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:px-2 lg:pb-4 lg:pt-2 print:hidden",
+            !sideOpen && "lg:hidden"
+          )}
+        >
           {toc.length >= 3 ? (
             <nav
               className="hidden rounded-lg border border-border bg-surface p-3 text-sm lg:block"
@@ -845,6 +932,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             setPendingQuote(prompt.text);
+            setSideOpen(true);
             dismissPrompt();
             window.getSelection()?.removeAllRanges();
             document

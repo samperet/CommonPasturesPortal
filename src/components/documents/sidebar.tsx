@@ -24,7 +24,8 @@ import { cn } from "@/lib/utils";
  * Community at the root, every circle within it (yours first, then the
  * rest, by name), each with its sub groups nested inside it. Any of them
  * folds away what's inside it — Community, every circle — remembered in
- * this browser, and unfolded while what's shown is inside. Choosing a
+ * this browser, and staying folded even while what's shown is inside (a dot
+ * on the folded row says it's in there). Choosing a
  * circle lists its documents and its sub groups' (`/documents?circle=`,
  * keeping the kind chosen); Community lists its own, since "every circle"
  * is All documents. On a page, its circle is the one marked. A circle's
@@ -127,11 +128,10 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
         .filter(listed)
         .sort((a, b) => Number(inIt(b)) - Number(inIt(a)) || a.name.localeCompare(b.name));
 
-  // What's inside a circle shows unless you've folded it away — and always while what's shown is inside.
+  // What's inside a circle shows unless you've folded it away — your fold always wins.
   const [folded, setFolded] = useState<Record<string, boolean>>({});
   useEffect(() => setFolded(readFolded()), []);
-  const isOpen = (circleId: string) =>
-    (showing.has(circleId) && circleId !== active) || !folded[circleId];
+  const isOpen = (circleId: string) => !folded[circleId];
   const toggle = (circleId: string) =>
     setFolded((state) => {
       const next = { ...state, [circleId]: !state[circleId] };
@@ -149,6 +149,8 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
     const open = isOpen(circle.id);
     const here = circle.id === active;
     const count = countOf(circle);
+    // Folded, with what's shown inside it: a dot says it's in there.
+    const holdsShown = !open && inside.length > 0 && showing.has(circle.id) && !here;
     // Rows that could hold others line up with those that do (their fold button's width).
     const holder = isCommunity(circle.id) || !parentOf(all, circle);
     return (
@@ -180,6 +182,13 @@ export function DocumentsSidebar({ onNavigate }: { onNavigate?: () => void }) {
           >
             <CircleIcon circle={circle} size={depth ? 16 : 18} className="shrink-0 rounded-full" />
             <span className="truncate">{circle.name}</span>
+            {holdsShown ? (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full bg-primary"
+                title="What you're looking at is in here"
+                data-docs-holds-shown
+              />
+            ) : null}
             <span className="ml-auto pl-2 text-xs font-normal text-muted">{count || ""}</span>
           </Link>
         </div>

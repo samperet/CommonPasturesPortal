@@ -4,7 +4,6 @@ import { problem } from "@/lib/http";
 import { canEditPage, canManagePage, canSeePage } from "./access";
 import { getPage, isSlug, type Failure, type WikiPage } from "./store";
 import type { Failure as CommentFailure } from "./comments";
-import type { Failure as PerspectiveFailure } from "./perspectives";
 import type { Actor } from "@/lib/auth/actor";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import type { Circle } from "@/lib/circles/types";
@@ -87,20 +86,5 @@ export function commentProblem(reason: CommentFailure) {
       return problem("You can't change that comment", 403);
     case "full":
       return problem("This page has as many comments as it can hold", 409);
-  }
-}
-
-export function perspectiveProblem(reason: PerspectiveFailure) {
-  switch (reason) {
-    case "not_found":
-      return problem("That version no longer exists", 404);
-    case "forbidden":
-      return problem("Only its author can change it", 403);
-    case "closed":
-      return problem("It's been withdrawn, adopted, or set aside, so it can't change", 409);
-    case "conflict":
-      return problem("It was saved somewhere else since — reload it to carry on", 409);
-    case "full":
-      return problem("This page has as many alternative versions as it can hold", 409);
   }
 }

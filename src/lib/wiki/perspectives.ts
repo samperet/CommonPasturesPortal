@@ -14,7 +14,11 @@ import {
 
 /**
  * Alternative versions of a page (`perspectives-shared.ts`), each page's in
- * `wiki/perspectives/<pageId>.json`. Anyone starts one, as a copy of the page;
+ * `wiki/perspectives/<pageId>.json`. Writing them was removed from the app in
+ * November 2026 (no routes start, change, share or adopt one any more); what
+ * remains serves proposals that already put versions forward — their
+ * snapshots, the meeting's choice, consent — and clearing a deleted page's.
+ * As it worked: anyone started one, as a copy of the page;
  * only its author (or an admin) changes it, saving against its own last
  * save so one device can't undo another's. When the page has moved on, its
  * author can bring the page's changes in (a three-way merge from the text it

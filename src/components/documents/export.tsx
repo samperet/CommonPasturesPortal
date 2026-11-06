@@ -82,6 +82,7 @@ export function RowChoice({
 }: {
   item: ExportItem;
   title: string;
+  /** What shows when not choosing (nothing, in the Documents page's list). */
   icon: ReactNode;
 }) {
   const choice = useContext(ChoiceContext);
@@ -97,6 +98,9 @@ export function RowChoice({
     />
   );
 }
+
+/** Whether documents are being chosen for an export (rows then start with a tick box). */
+export const useChoosing = () => !!useContext(ChoiceContext)?.choosing;
 
 /** "3 pages, 2 files and 1 proposal". */
 function countsText(counts: ExportCounts) {

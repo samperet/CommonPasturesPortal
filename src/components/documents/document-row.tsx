@@ -40,7 +40,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { DetailsFields, type DetailsForm } from "@/components/documents/details-fields";
 import { shortDate } from "@/lib/time";
 import { ConsentRecord, consentSummary } from "@/components/circles/consent-record";
-import { RowChoice } from "@/components/documents/export";
+import { RowChoice, useChoosing } from "@/components/documents/export";
 import { StarButton, useOpenNoter } from "@/components/documents/my-documents";
 import { ConsentDialog } from "@/components/proposals/consent-dialog";
 import { ProposalFormDialog } from "@/components/proposals/proposal-form";
@@ -59,7 +59,10 @@ import {
  * the reader may change. A link opens where it lives; a Google one can be
  * previewed in place, and its link changed (a new version); an Excel or CSV
  * file opens in CVC's spreadsheet editor (`/documents/<id>/sheet`). Its
- * **Star** keeps it in your starred list; opening it notes it as recent.
+ * **Star** keeps it in your starred list; opening it notes it as recent. On
+ * the Documents page no icon leads the row (in a circle's module, its file
+ * icon does), and no preview of its words — only, in a search, the passage
+ * that matched.
  */
 
 const fileUrl = (doc: DocumentListing, version?: number, download = false) =>
@@ -167,6 +170,9 @@ export function DocumentRow({
   const confirm = useConfirm();
   const router = useRouter();
   const noteOpened = useOpenNoter();
+  // Lines under the title line up with it after the icon (a circle's module) or the export tick box.
+  const choosing = useChoosing();
+  const indented = compact || choosing;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const replaceInput = useRef<HTMLInputElement>(null);
@@ -615,11 +621,14 @@ export function DocumentRow({
           item={{ kind: "file", id: doc.id }}
           title={doc.title}
           icon={
-            <FileIcon
-              contentType={version.contentType}
-              link={version.link?.kind}
-              className="mt-0.5 h-5 w-5 shrink-0 text-primary"
-            />
+            // The Documents page's list goes without icons; a circle's module keeps them.
+            compact ? (
+              <FileIcon
+                contentType={version.contentType}
+                link={version.link?.kind}
+                className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+              />
+            ) : null
           }
         />
         {sheetHref ? (
@@ -643,7 +652,7 @@ export function DocumentRow({
         {compact ? actions : null}
       </div>
       {compact ? null : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-8">
+        <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", indented && "pl-8")}>
           <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
             <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
               {doc.typeLabel}
@@ -677,7 +686,7 @@ export function DocumentRow({
         <ConsentRecord
           consent={doc.consent}
           what={consent === "changed" ? `Version ${doc.consent.version} consented` : "Consented"}
-          className="pl-8"
+          className={cn(indented && "pl-8")}
         />
       ) : null}
       {consenting ? (
@@ -704,19 +713,30 @@ export function DocumentRow({
         />
       ) : null}
       {doc.description && !compact ? (
-        <p className="truncate pl-8 text-sm text-foreground-light" title={doc.description}>
+        <p
+          className={cn("truncate text-sm text-foreground-light", indented && "pl-8")}
+          title={doc.description}
+        >
           <Highlighted text={doc.description} terms={terms} />
         </p>
       ) : null}
       {doc.snippet && !compact ? (
-        <p className="ml-8 rounded-md bg-accent/60 px-2 py-1 text-sm text-foreground-light">
+        <p
+          className={cn(
+            "rounded-md bg-accent/60 px-2 py-1 text-sm text-foreground-light",
+            indented && "ml-8"
+          )}
+        >
           <Highlighted text={doc.snippet} terms={terms} />
         </p>
       ) : null}
 
       {newLink !== null ? (
         <form
-          className="ml-8 flex flex-col gap-2 rounded-lg border border-border bg-white p-3"
+          className={cn(
+            "flex flex-col gap-2 rounded-lg border border-border bg-white p-3",
+            indented && "ml-8"
+          )}
           onSubmit={(event) => {
             event.preventDefault();
             changeLink.mutate(newLink.trim());
@@ -752,7 +772,7 @@ export function DocumentRow({
         </form>
       ) : null}
       {previewing && link?.previewUrl ? (
-        <div className="ml-8 flex flex-col gap-1">
+        <div className={cn("flex flex-col gap-1", indented && "ml-8")}>
           <iframe
             src={link.previewUrl}
             title={`Preview of ${doc.title}`}
@@ -775,7 +795,7 @@ export function DocumentRow({
         </div>
       ) : null}
       {replacing ? (
-        <div className="pl-8">
+        <div className={cn(indented && "pl-8")}>
           <Progress
             sent={replacing.sent}
             total={replacing.file.size}
@@ -785,7 +805,12 @@ export function DocumentRow({
       ) : null}
 
       {mode === "history" ? (
-        <ol className="ml-8 flex flex-col divide-y divide-border rounded-lg border border-border text-xs">
+        <ol
+          className={cn(
+            "flex flex-col divide-y divide-border rounded-lg border border-border text-xs",
+            indented && "ml-8"
+          )}
+        >
           {[...doc.versions].reverse().map((entry) => (
             <li
               key={entry.number}

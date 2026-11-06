@@ -4,14 +4,16 @@ import Link from "next/link";
 import { Handshake } from "lucide-react";
 import type { ProposalListing } from "@/lib/proposals/shared";
 import { Highlighted } from "@/components/documents/document-row";
-import { RowChoice } from "@/components/documents/export";
+import { RowChoice, useChoosing } from "@/components/documents/export";
+import { cn } from "@/lib/utils";
 import { ProposalStatusPill, dayOf } from "./proposal-bits";
 
 /**
  * Proposals in lists: a row in the Documents list (beside pages and files —
- * a handshake for an icon, where it stands, its circle, who proposed it, and
- * its opening words or the passage a search matched), and cards for a
- * circle's page (a Filtered Documents module's "proposals waiting for consent").
+ * where it stands, its circle, who proposed it, and in a search the passage
+ * that matched; no icon or preview there, a handshake in a circle's module),
+ * and cards for a circle's page (a Filtered Documents module's "proposals
+ * waiting for consent").
  */
 
 export function ProposalListingRow({
@@ -25,7 +27,10 @@ export function ProposalListingRow({
   showCircle: boolean;
   compact?: boolean;
 }) {
-  const text = proposal.snippet ?? proposal.excerpt;
+  // In a search, the passage that matched; otherwise no preview of its words.
+  const text = proposal.snippet;
+  const choosing = useChoosing();
+  const indented = compact || choosing;
   return (
     <li
       className={compact ? "flex flex-col py-2" : "flex flex-col gap-1 py-4"}
@@ -35,7 +40,11 @@ export function ProposalListingRow({
         <RowChoice
           item={{ kind: "proposal", id: proposal.id }}
           title={proposal.title}
-          icon={<Handshake className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />}
+          icon={
+            compact ? (
+              <Handshake className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
+            ) : null
+          }
         />
         <Link
           href={`/proposals/${proposal.id}`}
@@ -46,7 +55,12 @@ export function ProposalListingRow({
       </div>
       {compact ? null : (
         <>
-          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 pl-8 text-xs text-muted">
+          <p
+            className={cn(
+              "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted",
+              indented && "pl-8"
+            )}
+          >
             <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-pine">
               Proposal
             </span>
@@ -61,7 +75,7 @@ export function ProposalListingRow({
             <span className="whitespace-nowrap">{dayOf(proposal.createdAt)}</span>
           </p>
           {text ? (
-            <p className="line-clamp-2 pl-8 text-sm text-foreground-light">
+            <p className={cn("line-clamp-2 text-sm text-foreground-light", indented && "pl-8")}>
               <Highlighted text={text} terms={terms} />
             </p>
           ) : null}

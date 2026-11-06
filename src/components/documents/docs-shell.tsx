@@ -118,7 +118,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
         </div>
 
         <aside
-          className="hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto print:hidden"
+          className="hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto print:!hidden"
           data-docs-sidebar={open ? "open" : "closed"}
         >
           {open ? (

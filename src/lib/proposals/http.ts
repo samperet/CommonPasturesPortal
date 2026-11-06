@@ -261,10 +261,9 @@ export async function perspectivesOf(proposal: Pick<Proposal, "versions">) {
 export function versionShown(
   proposal: Proposal,
   version: ProposalVersion,
-  pages: WikiPage[],
+  _pages: WikiPage[],
   perspectives: Map<string, Perspective[]>
 ): ProposalVersionShown {
-  const page = pages.find((entry) => entry.id === version.pageId);
   const live = perspectives
     .get(version.pageId)
     ?.find((perspective) => perspective.id === version.perspectiveId);
@@ -272,7 +271,8 @@ export function versionShown(
   return {
     ...version,
     href: `/proposals/${proposal.id}/snapshots/${version.snapshotId}`,
-    liveHref: page && live ? `/wiki/${page.slug}/versions/${live.id}` : null,
+    // Versions can't be opened any more (the feature is gone); their snapshots still can.
+    liveHref: null,
     changed: !!live && live.updatedAt !== version.version,
     chosen: chosen === version.perspectiveId,
     setAside: chosen !== undefined && chosen !== version.perspectiveId,

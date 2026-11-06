@@ -17,7 +17,7 @@ A mobile-first community directory for residents, sociocratic circles, shared sk
 - 📱 **Installable app & notifications** – Add CVC to your home screen, and get push notifications when neighbors post.
 - 💡 **Resources** – Local services neighbors recommend, by category, with who recommended each, likes, and comments.
 - 📷 **Photos** – A shared gallery of community photos with captions and a full-screen viewer.
-- 📄 **Documents** – One place for every circle's documents: **pages written here** (a visual editor, editing together, embeds, history, sticky-note comments on passages, and **alternative versions** any resident can write and compare side by side) and **files uploaded** (minutes, agendas, plans, scans, with versions). One list and one search cover both, contents included, and the forum too; one **New** button writes a page, uploads a file, or adds a link (Google Docs, Sheets and Slides recognised); a file or Google Doc can be turned into a page. **Proposals** are their own records — put to a circle, about pages and files (each kept as a **snapshot** of how it was when attached), held in documents — and a circle consents to one **at a meeting**: the meeting's notes record who was there, and its **Consent** button records the circle, the meeting, who was there, and who recorded it. Pages and files show where their proposals stand: **Draft**, **Proposed**, **Consented**.
+- 📄 **Documents** – One place for every circle's documents: **pages written here** (a visual editor, editing together, embeds, history, sticky-note comments on passages, and **Save as PDF**) and **files uploaded** (minutes, agendas, plans, scans, with versions). One list and one search cover both, contents included, and the forum too; one **New** button writes a page, uploads a file, or adds a link (Google Docs, Sheets and Slides recognised); a file or Google Doc can be turned into a page. **Proposals** are their own records — put to a circle, about pages and files (each kept as a **snapshot** of how it was when attached), held in documents — and a circle consents to one **at a meeting**: the meeting's notes record who was there, and its **Consent** button records the circle, the meeting, who was there, and who recorded it. Pages and files show where their proposals stand: **Draft**, **Proposed**, **Consented**.
 - 🐞 **Bugs & ideas** – A ladybug in the corner of every page sends the admins a bug report or a feature request, with the page it came from.
 - 🗄️ **Backups** – Every Monday, everything residents can see in the app (and the site's code) in one zip, readable by people and by agents, fingerprinted and timestamped in Bitcoin; residents sign up on an unlisted page for an email, a feed, or a copy in their own storage.
 - 🌀 **Circles** – Each circle has its own page, with its members in a side panel; residents join with a button or apply, as the circle chooses. Its members and the Board manage members, details, and an icon; icons show as badges in the directory.
@@ -533,7 +533,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   published, `/documents?kind=drafts`), then the circles with documents as one tree: **Community**
   at the root, every circle within it (yours first, then the rest), each with its sub groups nested
   inside it. Community folds every circle up into it, and each circle folds its sub groups away
-  (remembered in the browser; unfolded while what's shown is inside). Each has a count of what
+  (remembered in the browser, and kept folded even while what's shown is inside — a dot on the
+  folded row says it's in there). Each has a count of what
   choosing it lists — its pages, files and proposals, its sub groups' included
   (`GET /api/documents/counts` gives the files and proposals). Choosing a circle lists its documents
   and its sub groups' (`/documents?circle=<id>`; the list asks `/api/documents` with `subs=1`, and
@@ -581,7 +582,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   the page) and its kind (**Google Doc**…); **Change the link** saves a new version, keeping the old
   link in the history.
 - Each circle's page has a **Documents** section, listing its pages and files by icon and title only
-  (their type, dates, authors and opening lines are on the Documents page); documents for everyone
+  (their type, dates and authors are on the Documents page, whose list has no icons and no preview
+  of a document's words — only, in a search, the passage that matched); documents for everyone
   belong to the Community circle.
   Each document shows its full title, then a line with its type, badges (Consented), circle where
   the list spans circles, date, and who uploaded the current version; Download, versions, and — for
@@ -600,9 +602,9 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   of its own: a card with the proposal, the documents it's about, where it stands, and what you can
   do. Its own page also lists the pages that hold it. The circle's members hear of a new proposal,
   and of its consent (topic "Proposals to your circles…"; everyone, for Community's).
-- **Alternative versions at a meeting** – a proposal about a page can put some of its alternative
-  versions to the circle with it (the proposal form offers a page's open versions as ticks;
-  `Proposal.versions`). Each is copied as it's put forward — its text with the page's changes up
+- **Alternative versions at a meeting** (only proposals made before versions were removed) – a
+  proposal about a page could put some of its alternative versions to the circle with it
+  (`Proposal.versions`). Each is copied as it's put forward — its text with the page's changes up
   to then brought in, beside that text of the page — and opens from the proposal (**Versions put
   forward with it**) side by side with the page as it was then. When its author changes it, the
   proposal says **changed since**, with **Use the current version**. While the proposal waits, the
@@ -759,27 +761,12 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   `/api/wiki/pages/<slug>`). Until October 2026 each circle had its own wiki
   (`wiki/<circleId>.json`); the first read brought them together (keeping each page's old address,
   `/circles/<id>/wiki/<slug>`, as a redirect) and left the old documents untouched.
-- **Alternative versions** (`lib/wiki/perspectives.ts`; "perspectives" in the code) – any
-  resident can write their own version of a page: **Write your own version** under its title makes
-  a copy of the page that only they (and admins) change, in the same visual editor (without polls,
-  proposals, or the meeting tools), saved as they type. Under the page's title its versions are
-  listed by name ("Eve's version · Mow twice a month in June", "(draft)" until shared), and those
-  no longer worked on behind "N earlier ones". A version's page (`/wiki/<slug>/versions/<id>`)
-  compares it with the page **side by side** (paragraphs lined up; each changed paragraph beside
-  the one most like it), as one column of **Changes**, or on its own, and **Compare with** sets it
-  against another version. Its author **Shares** it with the page's circle (its members and the
-  page's writers are told, once — the "proposals" setting) or **Withdraws** it. If the page is
-  edited meanwhile, the version shows what it would change on the page as it is now (the page's
-  changes merged in, paragraph by paragraph), and where both changed the same passage it says so;
-  its author can **Bring in the page's changes** for good. The page's editors can **Make this the
-  page** (unless it clashes with the page's changes, or a meeting is to decide): the page becomes
-  that text as a new version, its history keeps what it replaced, and the author is told.
-  **Put to a meeting** (for whoever can put proposals to the page's circle) starts a proposal about
-  the page with that version — and the page's other versions can be ticked too; see Proposals.
-  Versions are kept for the record (consented, made the page, set aside, withdrawn), up to 20 open
-  per page and 60 in all; a meeting's notes can't have them, and deleting a page deletes them. Photos added while writing one are kept with the page's
-  circle's photos. Stored per page in `wiki/perspectives/<pageId>.json`
-  (`/api/wiki/pages/<slug>/perspectives`).
+- **Alternative versions — removed** (November 2026). Residents could once write their own version
+  of a page and put it to a meeting; that's gone: no **Write your own version**, no version pages
+  (an old `/wiki/<slug>/versions/<id>` link opens the page), no versions in the proposal form, and
+  no routes to start, change, share or adopt one. What's kept is only what proposals already
+  holding versions need — their snapshots, the meeting's choice, consent (`lib/wiki/perspectives.ts`,
+  `wiki/perspectives/<pageId>.json`).
 - **Polls** live in wiki pages: the editor's poll button asks a question with 2–10 options, one
   choice or several, an optional closing date, optionally letting voters add their own options, and
   — outside Community — optionally for the page's parent circle's members only (everyone sees the results). It's
@@ -914,14 +901,23 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   or to a new page named after what you type, started when the page is saved and kept by its
   circle; written `[[Title|words]]`), and clear formatting. Shift + right-click opens the browser's
   own menu, for spelling suggestions.
-- **Tab** – in the editor (pages, alternative versions, Custom Text modules), Tab types a tab, as
+- **Save as PDF** – a page's **Save as PDF** button opens the browser's print window, where "Save
+  as PDF" is a destination (on a phone, its print or share sheet). The print layout (`globals.css`,
+  `print:hidden` on the controls) is just the page — its circle, title, date and words — without
+  buttons, comments or sidebars; folded sections are opened for it, and the file is named after the
+  page (`saveAsPdf` in `components/wiki/wiki-page.tsx`).
+- **The side column** – on a wide screen, a page's **On this page** and **Comments** column folds
+  away with the button at the end of the page's buttons, widening the page; **Comments (N)** brings
+  it back (remembered in the browser, `cvc-page-side`). Starting a comment on selected words, or
+  clicking a passage someone commented on, opens it again.
+- **Tab** – in the editor (pages and Custom Text modules), Tab types a tab, as
   in a word processor; in a list it still indents the item, and in a table it still moves to the
   next cell. Shift+Tab takes back a tab just typed. Escape and then Tab moves on out of the editor,
   so keyboard users are never stuck in it (`TabKey` in `components/wiki/editor-schema.ts`). Tabs
   are kept in the page's Markdown (at the start or end of a line as `&#x9;`) and show as tabs when
   the page is read (`remarkTabs` in `lib/wiki/tabs.ts`), reaching about as far as a word
   processor's.
-- **Find and replace** – in the editor (pages, alternative versions, Custom Text modules), the
+- **Find and replace** – in the editor (pages and Custom Text modules), the
   toolbar's magnifier, Ctrl/⌘+F, or Ctrl+H (⌘⇧H) opens a find bar under the toolbar. Every match
   is marked as you type, the current one more strongly, with "2 of 5", ↑ ↓ (or Enter and
   Shift+Enter) to move between them, and **Match case**; words in bold or a link are found like

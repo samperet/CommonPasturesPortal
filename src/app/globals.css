@@ -481,3 +481,30 @@ mark.wiki-mark {
   background: rgb(249 115 22 / 0.45);
   box-shadow: 0 0 0 1px rgb(194 65 12 / 0.6);
 }
+
+/* Save as PDF (printing a page): just the document, on plain paper, its pictures and tables kept whole. */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+  .document-sheet {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .document-body {
+    max-width: none;
+    padding: 1.5rem 0 0;
+  }
+  .document-body :is(h1, h2, h3, h4) {
+    break-after: avoid;
+  }
+  .document-body :is(img, table, pre, blockquote, figure) {
+    break-inside: avoid;
+  }
+  /* Passages people commented on aren't marked on paper. */
+  ::highlight(wiki-comment),
+  ::highlight(wiki-comment-active) {
+    background-color: transparent;
+  }
+}

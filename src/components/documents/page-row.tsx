@@ -6,18 +6,19 @@ import type { PageListing } from "@/lib/wiki/listing";
 import { shortDate, timeAgo } from "@/lib/time";
 import { Highlighted } from "@/components/documents/document-row";
 import { ConsentRecord, consentSummary } from "@/components/circles/consent-record";
-import { RowChoice } from "@/components/documents/export";
+import { RowChoice, useChoosing } from "@/components/documents/export";
+import { cn } from "@/lib/utils";
 import { Pill } from "@/components/ui/pill";
 
 /**
- * A written page in the Documents list, beside uploaded files: a book
- * instead of a file icon and a "Page" label instead of a file type, its
- * stage (proposed or consented; drafts aren't labelled — but a page not yet
- * published is, as a Draft), circle, and when
- * it was last edited, then its opening lines — or, in a search, the passage
- * that matched. Its title opens the page. In a circle's Documents module
- * (`compact`), just the book and the title. While documents are being
- * chosen for an export, the book is a box to tick.
+ * A written page in the Documents list, beside uploaded files: its title, a
+ * "Page" label instead of a file type, its stage (proposed or consented;
+ * drafts aren't labelled — but a page not yet published is, as a Draft),
+ * circle, and when it was last edited — no icon and no preview of its
+ * words, but in a search the passage that matched. Its title opens the
+ * page. In a circle's Documents module (`compact`), just a book and the
+ * title. While documents are being chosen for an export, a box to tick
+ * comes first.
  */
 export function PageListingRow({
   page,
@@ -30,14 +31,21 @@ export function PageListingRow({
   showCircle: boolean;
   compact?: boolean;
 }) {
-  const text = page.snippet ?? page.excerpt;
+  // In a search, the passage that matched; otherwise no preview of its words.
+  const text = page.snippet;
+  const choosing = useChoosing();
+  const indented = compact || choosing;
   return (
     <li className={compact ? "flex flex-col py-2" : "flex flex-col gap-1 py-4"} data-listing="page">
       <div className="flex items-start gap-3">
         <RowChoice
           item={{ kind: "page", id: page.id }}
           title={page.title}
-          icon={<BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />}
+          icon={
+            compact ? (
+              <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
+            ) : null
+          }
         />
         <Link
           href={`/wiki/${page.slug}`}
@@ -48,7 +56,12 @@ export function PageListingRow({
       </div>
       {compact ? null : (
         <>
-          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 pl-8 text-xs text-muted">
+          <p
+            className={cn(
+              "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted",
+              indented && "pl-8"
+            )}
+          >
             <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-pine">
               Page
             </span>
@@ -106,16 +119,15 @@ export function PageListingRow({
             <ConsentRecord
               consent={page.consentRecord}
               what={page.consent === "changed" ? "An earlier version was consented" : "Consented"}
-              className="pl-8"
+              className={cn(indented && "pl-8")}
             />
           ) : null}
           {text ? (
             <p
-              className={
-                page.snippet
-                  ? "ml-8 rounded-md bg-accent/60 px-2 py-1 text-sm text-foreground-light"
-                  : "ml-8 line-clamp-2 text-sm text-foreground-light"
-              }
+              className={cn(
+                "rounded-md bg-accent/60 px-2 py-1 text-sm text-foreground-light",
+                indented && "ml-8"
+              )}
             >
               <Highlighted text={text} terms={terms} />
             </p>

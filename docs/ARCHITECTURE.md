@@ -203,7 +203,9 @@ pages for a person goes through `visiblePages` (`lib/wiki/access.ts`), which lea
 people's drafts out (admins see them all).
 
 **Alternative versions** of a page (`lib/wiki/perspectives.ts`, types in `perspectives-shared.ts`;
-"perspectives" in code and storage) are copies of a page that one resident changes, kept per page in
+"perspectives" in code and storage) were removed from the app in November 2026: their routes and
+screens are gone, and the store stays only for proposals that already put versions forward. As
+they worked, they were copies of a page that one resident changes, kept per page in
 `wiki/perspectives/<pageId>.json`. Each keeps its `base` — the page's text and `updatedAt` it
 started from — so it can be compared with the page now: `caughtUp()` is `mergeText(base, version,
 page)`, the version with the page's later changes brought in (and the clashes), which is what's
