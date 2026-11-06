@@ -32,6 +32,8 @@ type Message = {
    * they've never signed in, which `onlyUserIds` can't reach.
    */
   onlyPersonIds?: string[];
+  /** Residents it isn't for, because they're told about the same thing another way. */
+  exceptPersonIds?: string[];
   /** Deliver regardless of preferences, by push only (the "send a test" button; bug reports, to the admins). */
   ignorePreferences?: boolean;
   /** Push only, never emailed (as for every push-only topic). */
@@ -47,7 +49,8 @@ const PUSH_WAIT_MS = 6000;
  * (`planDelivery`): by app on each of their devices, and by email for those
  * who chose its topic (`lib/email/send.ts`) — never the person who posted
  * it. `onlyUserIds` narrows it (e.g. to a discussion's participants), and
- * `onlyPersonIds` to residents (both: those in each). A test push
+ * `onlyPersonIds` to residents (both: those in each); `exceptPersonIds`
+ * leaves some out (told another way). A test push
  * (`ignorePreferences`), one marked `skipEmail`, and one on a push-only
  * topic (`PUSH_ONLY_TOPICS`) aren't emailed — whatever a resident once
  * saved. Then each resident's outcome, by app and by email, goes in the
@@ -76,6 +79,7 @@ export async function notify(message: Message) {
       exceptUserId: message.exceptUserId,
       onlyUserIds: message.onlyUserIds,
       onlyPersonIds: message.onlyPersonIds,
+      exceptPersonIds: message.exceptPersonIds,
       ignorePreferences: message.ignorePreferences,
       emailed: emailed && !!directory,
       people: directory?.people ?? [],

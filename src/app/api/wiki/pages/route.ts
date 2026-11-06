@@ -3,6 +3,7 @@ import { createPage, getPageById, pageInputSchema, pageSummary, readPages } from
 import { builtInTemplate, fillTemplate } from "@/lib/wiki/templates";
 import { setFollowing } from "@/lib/wiki/follows";
 import { tellMentioned } from "@/lib/wiki/mentions";
+import { announcePage } from "@/lib/documents/circle-news";
 import { shortDate, todayInVermont } from "@/lib/time";
 import { excerptOf } from "@/lib/wiki/excerpt";
 import { canEditPage, canSeePage, circlesYouKeep, visiblePages } from "@/lib/wiki/access";
@@ -81,9 +82,13 @@ export async function POST(request: NextRequest) {
   });
   if (!result.ok) return wikiProblem(result.reason);
   if (result.page) {
-    // Whoever starts a page follows it; anyone it mentions hears (once it's published).
+    // Whoever starts a page follows it; anyone it mentions, and its circle's members, hear (once
+    // it's published).
     await setFollowing(result.page.id, ctx.actor.userId, true);
-    if (!result.page.draft) await tellMentioned(result.page, ctx.actor);
+    if (!result.page.draft) {
+      await tellMentioned(result.page, ctx.actor);
+      await announcePage(result.page, ctx.actor, ctx.directory);
+    }
   }
   return NextResponse.json({ page: result.page }, { status: 201 });
 }

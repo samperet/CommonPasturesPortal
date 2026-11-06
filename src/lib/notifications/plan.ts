@@ -7,7 +7,9 @@ import type { AppOutcome, EmailOutcome } from "./shared";
  * same rules send it (`notify()`), record it, and answer "who would get
  * this?" before anything is sent. The audience is everyone in the
  * directory, or only some (`onlyUserIds`: those accounts' residents;
- * `onlyPersonIds`: these residents; both: those in each), never its author.
+ * `onlyPersonIds`: these residents; both: those in each), never its author
+ * nor anyone in `exceptPersonIds` (told some other way, e.g. a circle's
+ * members of its own documents).
  * By app, it goes to their devices if they've signed in, kept the topic on
  * (or `ignorePreferences`) and have a device with notifications on. By
  * email, the email rules decide (`chooseRecipients`: an address, chosen,
@@ -20,6 +22,8 @@ export interface PlanInput<D extends { userId: string }> {
   exceptUserId: string | null;
   onlyUserIds?: string[];
   onlyPersonIds?: string[];
+  /** Residents it isn't for (told about the same thing some other way). */
+  exceptPersonIds?: string[];
   ignorePreferences?: boolean;
   /** Whether this notification is emailed at all (not for app-only topics, tests, or without email). */
   emailed: boolean;
@@ -55,8 +59,10 @@ export function planDelivery<D extends { userId: string }>(input: PlanInput<D>):
     ? new Set(input.onlyUserIds.map((id) => personOf.get(id)).filter((id): id is string => !!id))
     : null;
   const onlyPeople = input.onlyPersonIds ? new Set(input.onlyPersonIds) : null;
+  const except = new Set(input.exceptPersonIds ?? []);
   const inAudience = (personId: string) =>
     personId !== authorPerson &&
+    !except.has(personId) &&
     (!fromAccounts || fromAccounts.has(personId)) &&
     (!onlyPeople || onlyPeople.has(personId));
   const accountIn = (id: string) => id !== exceptUserId && (!onlyUsers || onlyUsers.has(id));
@@ -71,15 +77,22 @@ export function planDelivery<D extends { userId: string }>(input: PlanInput<D>):
     return theirs.length ? { app: "send", devices: theirs } : { app: "no-device", devices: [] };
   };
 
+  const chosen =
+    fromAccounts && onlyPeople
+      ? new Set(Array.from(onlyPeople).filter((id) => fromAccounts.has(id)))
+      : fromAccounts ?? onlyPeople;
   const email = input.emailed
     ? chooseRecipients({
         people: input.people,
         topic,
         preferences: input.emailPreferences,
-        onlyPersonIds:
-          fromAccounts && onlyPeople
-            ? new Set(Array.from(onlyPeople).filter((id) => fromAccounts.has(id)))
-            : fromAccounts ?? onlyPeople,
+        onlyPersonIds: except.size
+          ? new Set(
+              (chosen ? Array.from(chosen) : input.people.map((person) => person.id)).filter(
+                (id) => !except.has(id)
+              )
+            )
+          : chosen,
         exceptPersonId: authorPerson,
         settings: input.emailSettings,
       })

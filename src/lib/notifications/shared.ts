@@ -61,7 +61,9 @@ export const TOPIC_AUDIENCES: Record<Topic, string> = {
   photos: "Everyone",
   resources: "Everyone, for a new recommendation; its recommender and commenters, for a comment",
   library: "Everyone",
-  documents: "Everyone",
+  documents: "Everyone but the circle's own members, for a new file, link or version",
+  circleDocuments:
+    "The members of the circle that keeps it (not Community's), for a new page, file, link or version, and a comment on one of its pages",
   circles:
     "A circle's members, when someone asks to join; the person who asked, when answered; those who add new members, for a join link",
   polls: "Everyone, or a circle's members for a members-only poll",

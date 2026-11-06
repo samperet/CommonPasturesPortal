@@ -1239,8 +1239,8 @@ from then on, so re-importing the directory never overwrites circle changes.
   `lib/email/`), through Brevo (or Resend when Brevo can't) from `EMAIL_FROM`, to the address in each resident's directory
   entry — including residents who have never signed in. Each resident picks what to be emailed
   about under **Email me about** on their profile; until they do, they get discussions, replies,
-  circle requests, tasks, polls, and comments on their pages (not photos, appreciations,
-  recommendations, the loan library, or documents). Nobody is emailed about their own posts, and
+  circle requests, tasks, polls, comments on their pages, and their own circles' documents (not
+  photos, appreciations, recommendations, the loan library, or other circles' documents). Nobody is emailed about their own posts, and
   a circle's Log never emails; circle forum messages and private messages are app notifications
   only (`PUSH_ONLY_TOPICS`), whatever was once saved. Every email links to the thing itself and has a **Stop them** link
   (and a one-click `List-Unsubscribe` header) that turns that topic off without signing in — a
@@ -1290,6 +1290,15 @@ from then on, so re-importing the directory never overwrites circle changes.
   many have it on — with **Who would get one now?**, the plan for everyone or a circle's members,
   nothing sent. **Opt-ins & outs** is the change log. (`GET /api/admin/notifications?days=`,
   `GET /api/admin/notifications/preview?topic=&circle=`.)
+- **Your circles' documents** – the members of the circle that keeps a document are told, by app
+  and by email until they turn it off (topic **New documents in your circles, and comments on their
+  pages**, `circleDocuments`; `lib/documents/circle-news.ts`): a new page once it's published (not
+  a draft), a new file or link or a new version of one, and a comment on one of the circle's pages
+  — but not those the comment already reached as the page's writers or in its thread (topic
+  **wiki**), nor whoever did it. Community's documents tell no circle (it's everyone, with no
+  members). Everyone else hears of new files and links by the **documents** topic (by app; email
+  only if chosen), which leaves out the circle's own members so nobody hears twice
+  (`exceptPersonIds`). Pages started by an AI assistant count; an Outline import doesn't.
 - **Sent to you lately** – each resident's **Notifications** lists what was sent to them in
   the last 30 days and how it reached them, or why it didn't (`GET /api/me/notifications`).
 

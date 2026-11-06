@@ -641,7 +641,14 @@ export function WikiPageClient({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    // With the side column folded, the page is a page's width, in the middle, rather than a wide
+    // sheet with its text in a narrow column and wide white margins either side.
+    <div
+      className={cn(
+        "flex flex-col gap-4",
+        !sideOpen && "lg:mx-auto lg:w-full lg:max-w-[52rem] print:max-w-none"
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         {back}
         <div className="flex flex-wrap items-center gap-2">

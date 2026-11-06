@@ -20,6 +20,8 @@ export const DEFAULT_EMAIL_PREFERENCES: Preferences = {
   resources: false,
   library: false,
   documents: false,
+  // Your own circles' documents and comments: emailed too, unless you turn it off.
+  circleDocuments: true,
   circles: true,
   polls: true,
   proposals: true,

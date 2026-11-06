@@ -22,6 +22,7 @@ import { MAX_WIKI_IMAGE_BYTES, saveWikiImage, wikiImageUrl } from "@/lib/wiki/im
 import { sniffImageType } from "@/lib/images";
 import { canManageDocument, canUploadTo } from "@/lib/documents/access";
 import { announceDocument } from "@/lib/documents/announce";
+import { announcePage } from "@/lib/documents/circle-news";
 import { readGoogleText } from "@/lib/documents/link-fetch";
 import { LINK_CONTENT_TYPE, classifyLink, linkName, readableKinds } from "@/lib/documents/links";
 import { extractText, identifyDocument } from "@/lib/documents/files";
@@ -43,7 +44,7 @@ import type { Done, McpWriter } from "./server";
  * What an AI assistant with a key that can write does on CVC's behalf
  * (`server.ts` → `McpWriter`): the same stores, rules and side effects as
  * the app's own routes — a page's creator follows it and those it mentions
- * are told; an edit tells the page's followers; a new document is announced
+ * and its circle's members are told; an edit tells the page's followers; a new document is announced
  * — so nothing an assistant does could be done by a resident who couldn't
  * do it in the app. Every refusal is in the app's own words. Files come as
  * base64 in the JSON request, so they're capped well under the platform's
@@ -170,9 +171,12 @@ export function writerFor(
       });
       if (!result.ok) return no(wikiMessage(result.reason));
       if (!result.page) return no("That page no longer exists");
-      // Whoever starts a page follows it; anyone it mentions hears (once it's published).
+      // Whoever starts a page follows it; anyone it mentions, and its circle, hear (once it's published).
       await setFollowing(result.page.id, actor.userId, true);
-      if (!result.page.draft) await tellMentioned(result.page, actor);
+      if (!result.page.draft) {
+        await tellMentioned(result.page, actor);
+        await announcePage(result.page, actor, directory);
+      }
       return yes(
         `Started “${result.page.title}” in ${found.name}${
           parent ? ` inside “${parent.title}”` : ""

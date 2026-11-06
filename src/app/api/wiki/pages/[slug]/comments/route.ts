@@ -3,6 +3,7 @@ import { addComment, commentInputSchema, listComments } from "@/lib/wiki/comment
 import { commentProblem, pageContext } from "@/lib/wiki/http";
 import { getHistory } from "@/lib/wiki/store";
 import { excerpt, notify } from "@/lib/push/notify";
+import { tellCircleOfComment } from "@/lib/documents/circle-news";
 import { readBody, throttled } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -48,5 +49,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     exceptUserId: ctx.user.id,
     onlyUserIds: recipients,
   });
+  // And the members of the circle that keeps it, but those just told.
+  await tellCircleOfComment(ctx.page, ctx.actor, parsed.data.body, ctx.directory, recipients);
   return NextResponse.json({ comment: result.comment }, { status: 201 });
 }

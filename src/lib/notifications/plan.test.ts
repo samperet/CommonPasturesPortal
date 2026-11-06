@@ -80,6 +80,35 @@ describe("planDelivery", () => {
     expect(residents.dev.email).toBe("send"); // Cara isn't in it, so Dev gets the shared address's
   });
 
+  it("leaves out those told another way, by app and by email", () => {
+    // Cara is a member of the circle (told by its own topic); everyone else hears by this one.
+    const plan = byKey(planDelivery({ ...base, topic: "documents", exceptPersonIds: ["cara"] }));
+    expect(Object.keys(plan)).toEqual(["ada", "dev", "eve", "user:u-old"]);
+    expect(plan.dev.email).toBe("off"); // documents aren't emailed until chosen
+    const chosen = byKey(
+      planDelivery({
+        ...base,
+        topic: "documents",
+        exceptPersonIds: ["cara"],
+        emailPreferences: { dev: { documents: true } },
+      })
+    );
+    expect(chosen.dev.email).toBe("send"); // the shared address is Dev's alone now
+  });
+
+  it("tells a circle's members of its documents and comments unless they turn it off", () => {
+    const plan = byKey(
+      planDelivery({
+        ...base,
+        topic: "circleDocuments",
+        onlyPersonIds: ["ada", "cara"],
+        appPreferences: { "u-cara": { circleDocuments: false } },
+      })
+    );
+    expect(plan.ada).toMatchObject({ app: "send", email: "send" });
+    expect(plan.cara).toMatchObject({ app: "off", email: "send" });
+  });
+
   it("sends a test or a bug report whatever their settings, by app only", () => {
     const plan = byKey(
       planDelivery({
