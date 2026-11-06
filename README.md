@@ -898,6 +898,13 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   or to a new page named after what you type, started when the page is saved and kept by its
   circle; written `[[Title|words]]`), and clear formatting. Shift + right-click opens the browser's
   own menu, for spelling suggestions.
+- **Tab** – in the editor (pages, alternative versions, Custom Text modules), Tab types a tab, as
+  in a word processor; in a list it still indents the item, and in a table it still moves to the
+  next cell. Shift+Tab takes back a tab just typed. Escape and then Tab moves on out of the editor,
+  so keyboard users are never stuck in it (`TabKey` in `components/wiki/editor-schema.ts`). Tabs
+  are kept in the page's Markdown (at the start or end of a line as `&#x9;`) and show as tabs when
+  the page is read (`remarkTabs` in `lib/wiki/tabs.ts`), reaching about as far as a word
+  processor's.
 - **Find and replace** – in the editor (pages, alternative versions, Custom Text modules), the
   toolbar's magnifier, Ctrl/⌘+F, or Ctrl+H (⌘⇧H) opens a find bar under the toolbar. Every match
   is marked as you type, the current one more strongly, with "2 of 5", ↑ ↓ (or Enter and

@@ -161,6 +161,12 @@ select {
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
   font-size: 1.0625rem;
+  /* A typed tab reaches about as far as a word processor's (a number first, for older browsers). */
+  tab-size: 12;
+  tab-size: 2.5em;
+}
+.document-body pre {
+  tab-size: 4;
 }
 @media (min-width: 640px) {
   .document-body {
@@ -183,6 +189,10 @@ select {
 /* The visual editor's text (TipTap / ProseMirror). */
 .wiki-editor .ProseMirror {
   outline: none;
+}
+/* A tab typed in a page (the editor keeps whitespace already): the same tab stops when it's read. */
+.wiki-tab {
+  white-space: pre;
 }
 .wiki-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

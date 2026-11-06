@@ -16,6 +16,7 @@ import remarkDirective from "remark-directive";
 import { remarkWikiDirectives } from "@/lib/wiki/directives";
 import { remarkTodoIndex } from "@/lib/wiki/todos";
 import { remarkTableWidths } from "@/lib/wiki/tables";
+import { remarkTabs } from "@/lib/wiki/tabs";
 import { headingSlug } from "@/lib/wiki/sections";
 import type { WikiPageSummary } from "@/lib/wiki/store";
 import {
@@ -339,6 +340,7 @@ export function WikiMarkdown({
                 remarkTableWidths,
                 remarkWikiDirectives,
                 remarkTodoIndex,
+                remarkTabs,
               ]}
               components={components}
             >
@@ -398,7 +400,13 @@ export function PlainWikiMarkdown({ source }: { source: string }) {
   return (
     <div className="flex flex-col gap-3 break-words text-foreground">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkDirective, remarkTableWidths, remarkWikiDirectives]}
+        remarkPlugins={[
+          remarkGfm,
+          remarkDirective,
+          remarkTableWidths,
+          remarkWikiDirectives,
+          remarkTabs,
+        ]}
         components={plainComponents}
       >
         {text}
