@@ -26,7 +26,7 @@ import {
 /**
  * The visual editor for a Custom Text module: the wiki's formatting —
  * headings, quotes and callouts, bold, italic and highlights, lists and
- * checklists, links, tables, collapsible sections, and dividers — without
+ * checklists, links, tables, and dividers — without
  * the page-only parts (photos, polls, embedded pages). Saves Markdown.
  */
 export function TextModuleEditor({

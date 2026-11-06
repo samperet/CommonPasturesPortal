@@ -6,7 +6,6 @@ import Suggestion, { type SuggestionProps } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
 import {
   BarChart3,
-  ChevronsUpDown,
   FilePlus2,
   Handshake,
   Heading1,
@@ -29,7 +28,7 @@ import { suggestionPopup, type MenuHandle } from "@/components/wiki/suggestion-p
 /**
  * Typing / at the start of a line (or after a space) in the wiki editor: a
  * menu of what to put there — headings, lists, a to-do list, a quote, a
- * callout, a collapsible section, a table, a divider, a photo, a page (linked
+ * callout, a table, a divider, a photo, a page (linked
  * or shown here) — and, in a page (not an alternative version), a poll, a
  * proposal, a file upload and who's present. Typing narrows it; Enter or a
  * click puts the thing in place of the "/…".
@@ -121,23 +120,6 @@ export function slashItems(actions: SlashActions): SlashItem[] {
       words: "note warning",
       icon: Megaphone,
       run: (e) => chain(e).wrapIn("callout").run(),
-    },
-    {
-      key: "details",
-      label: "Collapsible section",
-      hint: "Hidden until opened",
-      words: "details fold",
-      icon: ChevronsUpDown,
-      run: (e) =>
-        chain(e)
-          .insertContent({
-            type: "details",
-            attrs: { title: "Details" },
-            content: [
-              { type: "paragraph", content: [{ type: "text", text: "What this section hides." }] },
-            ],
-          })
-          .run(),
     },
     {
       key: "table",

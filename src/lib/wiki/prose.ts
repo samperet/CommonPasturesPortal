@@ -19,8 +19,10 @@ import { evenPixels, evenShares, formatWidths, parseWidths, pixelsOf, sharesOf }
  * linked / highlighted words (`:mark[…]{color}`), `[[links]]` (as tags),
  * tables' column widths (`::columns{widths="…"}` before a table, `tables.ts`),
  * residents mentioned (`:person[Ada Ash]{#id}`),
- * callouts (`:::callout`), collapsible sections (`:::details{title}`), and
- * polls, proposals and embedded pages (`::poll`, `::proposal`, `::embed`).
+ * callouts (`:::callout`), and polls, proposals and embedded pages
+ * (`::poll`, `::proposal`, `::embed`). A collapsible section from before
+ * they were taken out (`:::details{title}`) opens as its title in bold and
+ * then what it held, and is saved that way.
  * Anything else — HTML, footnotes, reference links, other directives — is
  * carried through as it was (a "raw" node holding its Markdown tree), so
  * nothing is ever lost.
@@ -280,13 +282,17 @@ function block(node: Md): ProseNode[] {
       }
       if (node.name === "details") {
         const label = (node.children ?? []).find(isLabel);
-        const title = node.attributes?.title ?? (label ? textOf(label) : "");
+        const title = (node.attributes?.title ?? (label ? textOf(label) : "")).trim();
         return [
-          {
-            type: "details",
-            attrs: { title, labelled: !node.attributes?.title && !!label },
-            content: someBlocks(blocks((node.children ?? []).filter((child) => !isLabel(child)))),
-          },
+          ...(title
+            ? [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: title, marks: [{ type: "bold" }] }],
+                },
+              ]
+            : []),
+          ...blocks((node.children ?? []).filter((child) => !isLabel(child))),
         ];
       }
       break;
@@ -467,12 +473,6 @@ function tidy(nodes: Md[]): Md[] {
   return out;
 }
 
-const directiveLabel = (title: string): Md => ({
-  type: "paragraph",
-  data: { directiveLabel: true },
-  children: [{ type: "text", value: title }],
-});
-
 function toMd(node: ProseNode): Md[] {
   const content = node.content ?? [];
   const attrs = node.attrs ?? {};
@@ -560,17 +560,6 @@ function toMd(node: ProseNode): Md[] {
           children: [...(attrs.label ? [attrs.label as Md] : []), ...flow()],
         },
       ];
-    case "details": {
-      const title = String(attrs.title ?? "");
-      return [
-        {
-          type: "containerDirective",
-          name: "details",
-          attributes: attrs.labelled ? {} : { title },
-          children: [...(attrs.labelled ? [directiveLabel(title)] : []), ...flow()],
-        },
-      ];
-    }
     case "poll":
     case "proposal":
       return [

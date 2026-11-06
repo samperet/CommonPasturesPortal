@@ -507,7 +507,7 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   **Download zip** — or **Export all documents** (all of a circle's, on its page or with the circle
   filter). The zip has a folder per circle: written pages as Markdown files (details first, as
   front matter; `[[links]]` to pages and files in the zip made relative, others to the app;
-  collapsible sections as `<details>`, callouts and embedded pages quoted, highlights as `<mark>`,
+  collapsible sections from before as `<details>`, callouts and embedded pages quoted, highlights as `<mark>`,
   polls with their votes, proposals in a page quoted with where they stand, photos in `images/`,
   a meeting's transcript at the end), files as their latest version, links as a note of where they
   go (with a Google file's text), and proposals (in `Proposals/`) as Markdown with their documents
@@ -719,7 +719,7 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   shows in the module); **@ new
   page** (and a link to a page that doesn't exist yet) starts a page kept by the same circle as the
   page it was started from. **Typing /** at the start of a line (or after a space) offers what to put
-  there — headings, lists, a to-do list, a quote, a callout, a collapsible section, a table, a
+  there — headings, lists, a to-do list, a quote, a callout, a table, a
   divider, a photo, a page, and (in a page, not a version) a poll, a proposal, a file and who's
   present — narrowed as you type (`components/wiki/slash-menu.tsx`). Pages are Markdown, edited in a **visual editor**
   ([TipTap](https://tiptap.dev), on ProseMirror) with a simple toolbar: headings, quotes and
@@ -730,8 +730,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   links, photos, tables (with their own
   add/delete tools while the cursor is in one, and **columns dragged to a width** by the edge
   between them — kept with the page as a `::columns{widths="30,70"}` line before the table, each
-  column's share in percent, and drawn so when reading; `lib/wiki/tables.ts`), collapsible
-  sections, embedded pages, and
+  column's share in percent, and drawn so when reading; `lib/wiki/tables.ts`), embedded pages,
+  and
   **polls**; Markdown shortcuts work as you type, Ctrl/⌘+K adds a link, and photos can be pasted or
   dropped in. `lib/wiki/prose.ts` turns a page's Markdown into the editor's document and back with
   the same Markdown writer and settings as before, so saved pages keep their spelling; what the
@@ -754,7 +754,14 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   one circle's); any of them takes `|shown text`. **Renaming a page updates the links and embeds
   that point to it.** **Embeds** (`::embed{page="Title" section="Heading"}`) show another page, or
   one section of it, inline and always current, labelled with the circle that keeps it; the
-  toolbar's **Link** menu (**A page or document…**) adds one, or just a link to the page. Changes
+  toolbar's **Link** menu (**A page or document…**) adds one, or just a link to the page. Either
+  can be **switched to the other** while editing: an embedded page's card has **Shown here / Just
+  a link**, and clicking a link to a page opens a small menu with **Just a link / Show it here**
+  and **Open** — the page takes the link's place, its line split around it (a link goes to the
+  whole page, so an embed of one section becomes a link to the page;
+  `components/wiki/link-or-embed.ts`). **Collapsible sections** were taken out (November 2026):
+  nothing adds one, and one written before reads as its title in bold and then its words, always
+  shown — and is saved that way the next time the page is edited. Changes
   **save as you type**, and several people can edit at once (others' saves merge in paragraph by
   paragraph). Each page keeps its last 25 versions (`wiki/history/<pageId>.json`), and its address
   when renamed. Pages are stored together in `wiki/pages.json` (`/api/wiki/pages`,
@@ -967,7 +974,7 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   remembered on their device.
   - A **Custom Text module** holds the circle's own words, written in its **Settings** with the
     wiki's visual editor (headings, quotes and callouts, bold, italic and highlights, lists and
-    checklists, links, tables, collapsible sections, dividers) under a heading of its choosing, on
+    checklists, links, tables, dividers) under a heading of its choosing, on
     a background it picks (white unless it chooses mint, yellow, peach, pink, lavender or blue), and
     shown formatted as on the wiki. It's saved with the page (`module.text.body`, Markdown, up to
     20,000 characters; `module.text.background`); for anything longer, write a page and show it with a Filtered Documents module.

@@ -72,20 +72,15 @@ const NO_THREADS: never[] = [];
  * Save as PDF: the browser's print window (where "Save as PDF" is a
  * destination; on a phone, its print or share sheet), with the print layout
  * in `globals.css` — just the page, no controls or comments. The file is
- * named after the page (the window's title while printing), and folded
- * sections are opened so nothing is left out; both are put back afterwards.
+ * named after the page (the window's title while printing), put back
+ * afterwards.
  */
 function saveAsPdf(title: string) {
   const before = document.title;
-  const folded = Array.from(
-    document.querySelectorAll<HTMLDetailsElement>("[data-page-sheet] details:not([open])")
-  );
   const restore = () => {
     document.title = before;
-    folded.forEach((section) => (section.open = false));
     window.removeEventListener("afterprint", restore);
   };
-  folded.forEach((section) => (section.open = true));
   document.title = title;
   window.addEventListener("afterprint", restore);
   window.print();

@@ -3,7 +3,7 @@
 import { useContext, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { ArrowUpRight, BarChart3, ChevronDown, Handshake, LayoutList, X } from "lucide-react";
+import { ArrowUpRight, BarChart3, Handshake, LayoutList, Link2, X } from "lucide-react";
 import { parseWikiLink } from "@/lib/wiki/links";
 import { rawMarkdown } from "@/lib/wiki/prose";
 import { WikiCircleContext, wikiPollsQuery } from "@/components/wiki/poll-block";
@@ -12,12 +12,14 @@ import { ProposalStatusPill } from "@/components/proposals/proposal-bits";
 import { EmbedBlock } from "@/components/wiki/embed-block";
 import { pageTitled, wikiPagesQuery } from "@/components/wiki/link-data";
 import { useCircles } from "@/components/directory/use-directory";
+import { SegmentedControl } from "@/components/ui/segmented";
+import { embedToLink } from "@/components/wiki/link-or-embed";
 
 /**
  * How the visual editor shows the page's own blocks (the nodes are in
- * `editor-schema.ts`): a callout and a collapsible section, edited in place;
+ * `editor-schema.ts`): a callout, edited in place;
  * a poll, a proposal and an embedded page, each a card with a × to take it
- * out of the page; and anything the editor doesn't know, as its Markdown.
+ * out of the page (and an embedded page's switch to "Just a link"); and anything the editor doesn't know, as its Markdown.
  */
 
 /** A callout (`:::callout`): its words, edited in place, inside the dotted line. */
@@ -31,30 +33,6 @@ export function CalloutView() {
         Callout
       </span>
       <NodeViewContent />
-    </NodeViewWrapper>
-  );
-}
-
-/** A collapsible section (`:::details{title="…"}`): its title, and what it hides. */
-export function DetailsView({ node, updateAttributes }: NodeViewProps) {
-  return (
-    <NodeViewWrapper className="my-2 rounded-lg border border-border bg-surface" data-details="">
-      <div
-        className="flex items-center gap-2 border-b border-border px-3 py-1.5"
-        contentEditable={false}
-      >
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-        <input
-          value={node.attrs.title ?? ""}
-          onChange={(event) => updateAttributes({ title: event.target.value })}
-          onKeyDown={(event) => event.stopPropagation()}
-          placeholder="Section title (shown when collapsed)"
-          aria-label="Collapsible section title"
-          className="w-full bg-transparent text-sm font-semibold text-foreground outline-none placeholder:font-normal placeholder:text-muted"
-        />
-        <span className="shrink-0 text-xs text-muted">Collapsible</span>
-      </div>
-      <NodeViewContent className="px-3 py-1" />
     </NodeViewWrapper>
   );
 }
@@ -149,8 +127,11 @@ export function ProposalView({ node, deleteNode }: NodeViewProps) {
   );
 }
 
-/** Another page (or a section of it) shown in this one: what it is, a preview on request, and a × to take it out. */
-export function EmbedView({ node, deleteNode }: NodeViewProps) {
+/**
+ * Another page (or a section of it) shown in this one: what it is, a switch
+ * to show it as just a link instead, a preview on request, and a × to take it out.
+ */
+export function EmbedView({ node, deleteNode, editor, getPos }: NodeViewProps) {
   const wiki = useContext(WikiCircleContext);
   const [preview, setPreview] = useState(false);
   const target = String(node.attrs.page ?? "");
@@ -172,8 +153,28 @@ export function EmbedView({ node, deleteNode }: NodeViewProps) {
             {link?.title ?? target}
             {section ? <span className="font-normal text-muted"> › {section}</span> : null}
           </p>
-          <p className="text-xs text-muted">
-            Shown here{circle && circle.id !== wiki?.circleId ? `, from ${circle.name}` : ""} ·{" "}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+            <SegmentedControl
+              label="Show the page as"
+              size="xs"
+              value="embed"
+              onChange={(value) => {
+                const pos = getPos();
+                if (value === "link" && typeof pos === "number") embedToLink(editor, pos);
+              }}
+              options={[
+                { value: "embed", label: "Shown here", icon: LayoutList },
+                {
+                  value: "link",
+                  label: "Just a link",
+                  icon: Link2,
+                  title: section
+                    ? "A link to the whole page, where this is"
+                    : "A link to the page, where this is",
+                },
+              ]}
+            />
+            {circle && circle.id !== wiki?.circleId ? <span>From {circle.name}</span> : null}
             <button
               type="button"
               className="font-medium text-secondary-foreground hover:underline"
@@ -182,7 +183,7 @@ export function EmbedView({ node, deleteNode }: NodeViewProps) {
             >
               {preview ? "Hide preview" : "Show preview"}
             </button>
-          </p>
+          </div>
         </div>
         {found ? (
           <a

@@ -34,8 +34,6 @@ const SAMPLES: Record<string, string> = {
   highlight:
     'Some :mark[highlighted words]{color="green"} and :mark[**bold** in a highlight]{color="pink"}.\n',
   callout: ":::callout\nBring gloves.\n\n* And water\n:::\n",
-  details: ':::details{title="Winter care"}\nEmpty the ash pan.\n:::\n',
-  detailsLabel: ":::details[Winter care]\nEmpty the ash pan.\n:::\n",
   blocks:
     '::poll{#abc123}\n\n::proposal{#def456}\n\n::embed{page="Pellet Stove" section="Winter care"}\n\n::embed{page="Mowing"}\n',
   html: "<div>Some HTML</div>\n\nInline <b>tags</b> too.\n",
@@ -58,7 +56,7 @@ describe("Markdown → document → Markdown", () => {
   }
 
   it("keeps the old editor's spelling as it was", () => {
-    for (const name of ["headings", "lists", "checklist", "callout", "details", "blocks"])
+    for (const name of ["headings", "lists", "checklist", "callout", "blocks"])
       expect(roundTrip(SAMPLES[name])).toBe(SAMPLES[name]);
   });
 
@@ -84,16 +82,17 @@ describe("the document", () => {
   const types = (nodes: ProseNode[] | undefined): string[] =>
     (nodes ?? []).flatMap((node) => [node.type, ...types(node.content)]);
 
-  it("has the editor's own blocks for callouts, sections, polls, proposals and embeds", () => {
+  it("opens a collapsible section from before as its title in bold, then what it held", () => {
+    for (const markdown of [
+      ':::details{title="Winter care"}\nEmpty the ash pan.\n:::\n',
+      ":::details[Winter care]\nEmpty the ash pan.\n:::\n",
+    ])
+      expect(roundTrip(markdown)).toBe("**Winter care**\n\nEmpty the ash pan.\n");
+    expect(roundTrip(":::details\nJust this.\n:::\n")).toBe("Just this.\n");
+  });
+
+  it("has the editor's own blocks for callouts, polls, proposals and embeds", () => {
     expect(types(doc(SAMPLES.callout))).toContain("callout");
-    expect(doc(SAMPLES.details)[0]).toMatchObject({
-      type: "details",
-      attrs: { title: "Winter care" },
-    });
-    expect(doc(SAMPLES.detailsLabel)[0]).toMatchObject({
-      type: "details",
-      attrs: { title: "Winter care", labelled: true },
-    });
     expect(doc(SAMPLES.blocks).map((node) => node.type)).toEqual([
       "poll",
       "proposal",

@@ -15,7 +15,6 @@ import { PersonMention, WikiLink } from "@/components/wiki/wiki-link-node";
 import { MIN_COLUMN_PX, evenPixels } from "@/lib/wiki/tables";
 import {
   CalloutView,
-  DetailsView,
   EmbedView,
   PollView,
   ProposalView,
@@ -26,7 +25,7 @@ import {
 /**
  * The visual editor's schema (TipTap): exactly what `lib/wiki/prose.ts`
  * reads pages into and writes back — the usual Markdown blocks and marks,
- * highlights, `[[link]]` tags, residents mentioned, callouts, collapsible sections, polls,
+ * highlights, `[[link]]` tags, residents mentioned, callouts, polls,
  * proposals, embedded pages, and "raw" nodes for whatever else a page
  * holds. Attributes only Markdown needs (a loose list, a code block's
  * meta, a table's column alignment) are kept but never drawn.
@@ -91,13 +90,6 @@ export const Callout = blockOf(
   { label: { default: null }, attributes: { default: null } },
   CalloutView,
   "aside",
-  "block+"
-);
-export const Details = blockOf(
-  "details",
-  { title: { default: "Details" }, labelled: { default: false } },
-  DetailsView,
-  "section",
   "block+"
 );
 export const Poll = blockOf(
@@ -355,7 +347,6 @@ export function wikiExtensions({
     WikiLink,
     PersonMention,
     Callout,
-    Details,
     RawBlock,
     RawInline,
     MarkdownAttributes,

@@ -1,12 +1,13 @@
 /**
- * Collapsible sections in wiki pages, written with the Markdown directive syntax:
+ * The wiki's own blocks, written with the Markdown directive syntax. Pages
+ * once had collapsible sections —
  *
  *   :::details{title="Winter duty"}
  *   Hidden until the reader opens it.
  *   :::
  *
- * (`:::details[Winter duty]` works too.) This remark plugin turns them into
- * <details>/<summary>, a poll — `::poll{id="…"}`, on its own line — into
+ * (or `:::details[Winter duty]`) — which are gone: this remark plugin shows
+ * one as its title in bold, then what it held, always open. It turns a poll — `::poll{id="…"}`, on its own line — into
  * a placeholder the page fills with the poll, a proposal —
  * `::proposal{id="…"}` — into one it fills with the proposal, an embedded page —
  * `::embed{page="Circle:Title" section="Heading"}` — into one the page fills
@@ -48,17 +49,10 @@ function transform(node: Node): Node[] {
     const body = (node.children ?? []).filter((child) => !child.data?.directiveLabel);
     return [
       {
-        type: "details",
-        data: { hName: "details" },
-        children: [
-          {
-            type: "detailsSummary",
-            data: { hName: "summary" },
-            children: [{ type: "text", value: title }],
-          },
-          ...body,
-        ],
+        type: "paragraph",
+        children: [{ type: "strong", children: [{ type: "text", value: title }] }],
       },
+      ...body,
     ];
   }
   if (node.type === "containerDirective" && node.name === "callout") {

@@ -154,18 +154,6 @@ const components: Components = {
       );
     return <div {...props} />;
   },
-  details: ({ node: _node, ...props }) => (
-    <details
-      className="wiki-details group rounded-lg border border-border bg-surface px-4 py-2 [&>*+*]:mt-3"
-      {...props}
-    />
-  ),
-  summary: ({ node: _node, ...props }) => (
-    <summary
-      className="-mx-4 -my-2 cursor-pointer select-none rounded-lg px-4 py-2 font-semibold text-foreground hover:bg-accent/60 group-open:rounded-b-none group-open:border-b group-open:border-border"
-      {...props}
-    />
-  ),
   table: ({ node: _node, ...props }) => <Table {...props} />,
   th: ({ node: _node, ...props }) => (
     <th

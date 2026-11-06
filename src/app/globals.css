@@ -201,7 +201,7 @@ select {
   pointer-events: none;
   color: theme("colors.muted");
 }
-/* Inside a callout or a collapsible section, its blocks are spaced like the page's. */
+/* Inside a callout, its blocks are spaced like the page's. */
 .wiki-editor [data-node-view-content-react] > * + * {
   margin-top: 0.75rem;
 }

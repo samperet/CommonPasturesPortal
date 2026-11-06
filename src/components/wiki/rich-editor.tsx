@@ -12,7 +12,6 @@ import {
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import {
   BarChart3,
-  ChevronsUpDown,
   FilePlus2,
   Globe,
   Handshake,
@@ -144,7 +143,7 @@ function TranscriptToggle({ on, onToggle }: { on: boolean; onToggle: () => void 
 /**
  * The wiki's visual editor (TipTap): a simple formatting toolbar (with a
  * highlighter), a right-click menu (`editor-context-menu.tsx`), lists,
- * tables, photos, collapsible sections, polls, and Markdown shortcuts as you
+ * tables, photos, polls, and Markdown shortcuts as you
  * type (`#`, `-`, `**`), and find and replace (`find-bar.tsx`, Ctrl/⌘+F).
  * Typing / offers what to put in (`slash-menu.tsx`);
  * typing @ links a page or a document — or a new page. The page stays Markdown (`lib/wiki/prose.ts` converts both ways);
@@ -504,27 +503,6 @@ function Toolbar({
         <ImagePlus className="h-4 w-4" />
       </ToolbarButton>
       <InsertTableButton editor={editor} />
-      <ToolbarButton
-        title="Collapsible section"
-        onClick={() =>
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "details",
-              attrs: { title: "Details" },
-              content: [
-                {
-                  type: "paragraph",
-                  content: [{ type: "text", text: "What this section hides." }],
-                },
-              ],
-            })
-            .run()
-        }
-      >
-        <ChevronsUpDown className="h-4 w-4" />
-      </ToolbarButton>
       <ToolbarButton title="Add a poll" onClick={onPoll}>
         <BarChart3 className="h-4 w-4" />
       </ToolbarButton>
