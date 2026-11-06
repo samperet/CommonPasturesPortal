@@ -111,8 +111,8 @@ export const PLACES: { href: string; title: string; about: string; admin?: boole
   },
   {
     href: "/profile#install",
-    title: "Add CVC as an app",
-    about: "install home screen phone app icon iphone android",
+    title: "Save CVC as an app",
+    about: "add install home screen phone app icon iphone android community notifications",
   },
   {
     href: "/mcp",

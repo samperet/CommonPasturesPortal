@@ -886,20 +886,24 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   shown once (with the address for Claude.ai and ChatGPT and the `claude mcp add` command for
   Claude Code); only its hash is kept (`mcp/keys.json`, up to five a resident, with when each was
   last used); **Take away** shuts that assistant out at once.
-- **Add CVC as an app** – one set of steps for the device in hand (`InstallSteps` in
-  `components/notifications/add-as-app.tsx`): an **Install CVC now** button where the browser
-  offers one; on an iPhone, Safari's Share (behind ⋯ on the newest) → **Add to Home Screen**; on
-  other phones, the browser's menu → **Add to Home screen** / **Install app**; on a computer,
-  Chrome's or Edge's install, or Safari's File → Add to Dock. They're offered in four places:
-  - **Add as an app** in the menu under your name opens them in a popup (until you're using the
+- **Save CVC as an app** (for community notifications) – one set of steps for the device in hand
+  (`InstallSteps` in `components/notifications/add-as-app.tsx`): a **Save as an app** button where
+  the browser offers its own install; on an iPhone, Chrome or Safari alike, the Share button
+  (pictured, as it looks) → **Add to Home Screen** → **Add**; on other phones, the browser's ⋮ menu
+  → **Add to Home screen** / **Install app**; on a computer, Chrome's or Edge's install, or Safari's
+  File → Add to Dock. In the popup on a phone, an arrow at the edge of the screen points at that
+  button: top right in Chrome on an iPhone and on Android, the bottom in Safari. Offered in four
+  places:
+  - **Save as an app** in the menu under your name opens them in a popup (until you're using the
     app on that device).
-  - **Add CVC as an app** is its own section on your profile (`/profile#install`), above
+  - **Save CVC as an app** is its own section on your profile (`/profile#install`), above
     **Notifications**.
-  - **On a phone that isn't using the app**, a popup offers them a moment after a page loads
-    (`InstallPrompt`). It never appears on the visit with the welcome tour (which shows the same
-    steps), while viewing as someone, or on sign-in and join pages. **Not now** keeps it away for
-    two weeks, **I've added it already** for good on that browser (`cvc-install-prompt` in the
-    browser's storage).
+  - **On a phone that isn't using the app**, the popup offers itself a moment after a page loads
+    (`InstallPrompt`) — but only once someone has come back three times (opening CVC after an hour
+    or more away counts as coming back; `cvc-visits` in the browser's storage). Never on the
+    welcome tour's visit (which shows the same steps), while viewing as someone, or on sign-in and
+    join pages. **Not now** keeps it away for two weeks, **I've saved it already** for good on that
+    browser (`cvc-install-prompt`).
   - **The phone menu (☰)** folds them out in large print (`components/layout/install-help.tsx`).
 
   "A phone" is `isPhone` in `components/notifications/pwa.ts` (a phone's browser, or a touch

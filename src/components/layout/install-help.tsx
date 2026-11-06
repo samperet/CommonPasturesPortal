@@ -7,7 +7,7 @@ import { InstallSteps } from "@/components/notifications/add-as-app";
 import { cn } from "@/lib/utils";
 
 /**
- * In the phone menu: how to put CVC on the home screen, like an app — the
+ * In the phone menu: how to save CVC as an app on the home screen — the
  * same steps as everywhere else (`InstallSteps`), in large print for the
  * phone in hand. Folded until pressed. Only on a phone (`isPhone`), and only
  * until CVC is installed there: laptops and installed phones don't see it.
@@ -27,14 +27,14 @@ export function InstallHelp() {
         <span className="flex h-6 w-6 shrink-0 items-center justify-center">
           <Smartphone className="h-5 w-5 text-primary" aria-hidden />
         </span>
-        <span className="flex-1">Put CVC on your home screen</span>
+        <span className="flex-1">Save CVC as an app</span>
         <ChevronDown className={cn("h-5 w-5 transition", open && "rotate-180")} aria-hidden />
       </button>
       {open ? (
         <div className="flex flex-col gap-3 px-3 pb-2 pt-1 text-base leading-relaxed text-foreground">
           <p className="text-foreground-light">
-            Then CVC opens with one tap, like any other app, and can send you notifications. It
-            takes about a minute and nothing is downloaded.
+            For community notifications: CVC opens with one tap from your home screen, and lets you
+            know when neighbors post. It takes about a minute and nothing is downloaded.
           </p>
           <InstallSteps size="large" />
           <p className="text-sm text-muted">

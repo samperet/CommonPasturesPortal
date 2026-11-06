@@ -34,7 +34,7 @@ import { AddAsAppDialog } from "@/components/notifications/add-as-app";
 import { useInstall } from "@/components/notifications/pwa";
 
 /**
- * The menu under your name: your profile, your notifications, **Add as an
+ * The menu under your name: your profile, your notifications, **Save as an
  * app** (its steps in a popup, until you're using the app), the tour, the
  * pages your roles open (Secretary, Homes for sale, the admin pages),
  * viewing as a resident (admins), signing out — and, last, **Send an alert**
@@ -53,7 +53,7 @@ export function UserMenu() {
   // Circles with an Alert module (only admins add one): anyone can send an alert from here.
   const alertCircles = useCircles()?.filter(hasAlert) ?? [];
   const [alerting, setAlerting] = useState<{ id: string; name: string } | null>(null);
-  // Add as an app: its steps in a popup (not shown once you're using the app).
+  // Save as an app: its steps in a popup (not shown once you're using the app).
   const [addingApp, setAddingApp] = useState(false);
   const { installed } = useInstall();
   // Residents who can sign in, for "View as" (only loaded once an admin opens the picker).
@@ -127,7 +127,7 @@ export function UserMenu() {
                 }}
                 data-menu-install
               >
-                <Smartphone className="h-4 w-4" /> Add as an app
+                <Smartphone className="h-4 w-4" /> Save as an app
               </Button>
             )}
             <Button asChild variant="ghost" size="sm" className="mb-1 w-full justify-start gap-2">
