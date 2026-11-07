@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { ListTree, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth/client";
 import { DocumentsSidebar } from "@/components/documents/sidebar";
-import { DocsShellContext, type PageParent } from "@/components/documents/docs-context";
+import {
+  DocsShellContext,
+  type PageParent,
+  type SidebarMotion,
+} from "@/components/documents/docs-context";
 import { WritePageDialog } from "@/components/documents/new-menu";
 import { useWikiPages } from "@/components/wiki/wiki-client";
 
@@ -19,9 +23,19 @@ import { useWikiPages } from "@/components/wiki/wiki-client";
  * **Browse** button. `n` starts a page. Spreadsheets
  * (`…/sheet`) take the whole width. Pages inside start a page through the
  * shell (`useDocsShell`), inside another page or not.
+ *
+ * A page's own column (On this page, Comments) folds with the sidebar: one
+ * state for both (`sidebars` in the context), and on a page that `claim`s
+ * them one button — the page's — instead of the sidebar's own (the folded
+ * sidebar then takes no room at all). They move together: folding, a small
+ * step back first, then out; coming back, in past where they belong and
+ * bouncing into place (the columns' widths change, timed in `globals.css`
+ * under `data-sidebars-moving`; none for those who'd rather less motion).
  */
 
 const OPEN_KEY = "cvc-docs-sidebar";
+/** How long each way takes — the same as `globals.css`. */
+const MOTION_MS = { out: 420, in: 760 } as const;
 
 const isTyping = (target: EventTarget | null) => {
   const element = target as HTMLElement | null;
@@ -36,6 +50,10 @@ export function DocsShell({ children }: { children: ReactNode }) {
   // Spreadsheets want the whole width: no sidebar there.
   const plain = /\/sheet$/.test(pathname);
   const [open, setOpen] = useState(true);
+  const [moving, setMoving] = useState<SidebarMotion>(null);
+  const settle = useRef<ReturnType<typeof setTimeout>>();
+  // Pages showing the one button for both sidebars (the shell's own then goes).
+  const [claims, setClaims] = useState(0);
   const [drawer, setDrawer] = useState(false);
   const [writing, setWriting] = useState<{ parent?: PageParent } | null>(null);
   const canWrite = (useWikiPages().data?.keepers.length ?? 0) > 0;
@@ -48,16 +66,29 @@ export function DocsShell({ children }: { children: ReactNode }) {
       // Private browsing: the sidebar just starts open.
     }
   }, []);
-  const toggle = useCallback((next?: boolean) => {
-    setOpen((current) => {
-      const value = next ?? !current;
+  const toggle = useCallback(
+    (next?: boolean) => {
+      const value = next ?? !open;
+      if (value === open) return;
+      setOpen(value);
       try {
         localStorage.setItem(OPEN_KEY, value ? "open" : "closed");
       } catch {
         // Not remembered, then.
       }
-      return value;
-    });
+      clearTimeout(settle.current);
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (still) return setMoving(null);
+      const way = value ? "in" : "out";
+      setMoving(way);
+      settle.current = setTimeout(() => setMoving(null), MOTION_MS[way]);
+    },
+    [open]
+  );
+  useEffect(() => () => clearTimeout(settle.current), []);
+  const claim = useCallback(() => {
+    setClaims((count) => count + 1);
+    return () => setClaims((count) => count - 1);
   }, []);
   useEffect(() => setDrawer(false), [pathname]);
 
@@ -86,9 +117,16 @@ export function DocsShell({ children }: { children: ReactNode }) {
   }, [toggle, canWrite, writing, drawer]);
 
   const shell = useMemo(
-    () => ({ newPage: (parent?: PageParent) => setWriting({ parent }), canWrite }),
-    [canWrite]
+    () => ({
+      newPage: (parent?: PageParent) => setWriting({ parent }),
+      canWrite,
+      sidebars: { open, moving, toggle, claim },
+    }),
+    [canWrite, open, moving, toggle, claim]
   );
+  // On a page with the one button, a folded sidebar takes no room; elsewhere it leaves its button.
+  const claimed = claims > 0;
+  const shown = open || moving === "out";
 
   if (!user || plain) return <>{children}</>;
 
@@ -99,9 +137,14 @@ export function DocsShell({ children }: { children: ReactNode }) {
       <div
         className={cn(
           "flex flex-col gap-3 lg:grid lg:items-start lg:gap-6",
-          open ? "lg:grid-cols-[16rem_minmax(0,1fr)]" : "lg:grid-cols-[2.5rem_minmax(0,1fr)]"
+          open
+            ? "lg:grid-cols-[16rem_minmax(0,1fr)]"
+            : claimed
+              ? "lg:grid-cols-[0rem_minmax(0,1fr)] lg:gap-x-0"
+              : "lg:grid-cols-[2.5rem_minmax(0,1fr)]"
         )}
         data-docs-shell={open ? "open" : "closed"}
+        data-sidebars-moving={moving ?? undefined}
       >
         {/* Phones: the button that slides the sidebar in. */}
         <div className="flex items-center lg:hidden print:hidden">
@@ -117,27 +160,33 @@ export function DocsShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
+        {/* While it slides, the sidebar keeps its width and moves with its right edge. */}
         <aside
-          className="hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto print:!hidden"
+          className={cn(
+            "hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overflow-x-hidden print:!hidden",
+            !shown && claimed && "lg:invisible"
+          )}
           data-docs-sidebar={open ? "open" : "closed"}
         >
-          {open ? (
-            <div className="flex flex-col gap-1 pr-1">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => toggle(false)}
-                  className={iconButton}
-                  aria-label="Hide the sidebar"
-                  title="Hide the sidebar ( [ )"
-                  data-docs-hide
-                >
-                  <PanelLeftClose className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
+          {shown ? (
+            <div className="ml-auto flex w-64 flex-col gap-1 pr-1">
+              {claimed ? null : (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => toggle(false)}
+                    className={iconButton}
+                    aria-label="Hide the sidebar"
+                    title="Hide the sidebar ( [ )"
+                    data-docs-hide
+                  >
+                    <PanelLeftClose className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              )}
               <DocumentsSidebar />
             </div>
-          ) : (
+          ) : claimed ? null : (
             <button
               type="button"
               onClick={() => toggle(true)}

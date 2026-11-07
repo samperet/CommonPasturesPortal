@@ -14,8 +14,7 @@ import {
   MessageSquarePlus,
   FileDown,
   Move as MoveIcon,
-  PanelRightClose,
-  PanelRightOpen,
+  Columns3,
   Pencil,
   Plus,
   RotateCcw,
@@ -86,7 +85,6 @@ function saveAsPdf(title: string) {
   window.print();
 }
 /** Whether the side column (On this page, comments) was hidden, remembered in this browser. */
-const SIDE_KEY = "cvc-page-side";
 const NO_IDS = new Set<string>();
 
 /** A floating "Comment" button over selected text on the page. */
@@ -192,22 +190,14 @@ export function WikiPageClient({ slug }: { slug: string }) {
   const [showHistory, setShowHistory] = useState(false);
   const [pendingQuote, setPendingQuote] = useState<string | null>(null);
   // The side column (On this page, comments) on a wide screen: hidden on request, remembered in this browser.
-  const [sideOpen, setSideOpen] = useState(true);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(SIDE_KEY) === "closed") setSideOpen(false);
-    } catch {
-      // Private browsing: it starts open.
-    }
-  }, []);
-  const showSide = (open: boolean) => {
-    setSideOpen(open);
-    try {
-      localStorage.setItem(SIDE_KEY, open ? "open" : "closed");
-    } catch {
-      // Not remembered, then.
-    }
-  };
+  // The side column folds with the documents sidebar: one state, one button (the shell's `sidebars`).
+  const shell = useDocsShell();
+  const [ownSide, setOwnSide] = useState(true);
+  const sideOpen = shell ? shell.sidebars.open : ownSide;
+  const moving = shell?.sidebars.moving ?? null;
+  const sideShown = sideOpen || moving === "out";
+  const showSide = (open: boolean) => (shell ? shell.sidebars.toggle(open) : setOwnSide(open));
+  const claimSidebars = shell?.sidebars.claim;
   const [activeId, setActiveId] = useState<string | null>(null);
   const article = useRef<HTMLDivElement>(null);
 
@@ -215,6 +205,12 @@ export function WikiPageClient({ slug }: { slug: string }) {
   useNoteOpened(page ? { kind: "page", id: page.id } : null);
   const wikiOn = true;
   const canEdit = !!data?.canEdit;
+  // Showing the page (not its editor): its button folds both sidebars, so the shell's own goes.
+  const showsPage = !(mode === "edit" && canEdit);
+  useEffect(
+    () => (showsPage && claimSidebars ? claimSidebars() : undefined),
+    [showsPage, claimSidebars]
+  );
   const canManage = !!data?.canManage;
   const canConsent = !!data?.canConsent;
   const history = data?.history ?? [];
@@ -225,7 +221,6 @@ export function WikiPageClient({ slug }: { slug: string }) {
     () => (page ? childrenOf(pages, page.id, page.keeper).filter((entry) => !entry.draft) : []),
     [pages, page]
   );
-  const shell = useDocsShell();
   // While reading: e edits (if you may), s stars — unless you're typing or a dialog is open.
   useEffect(() => {
     if (!reading) return;
@@ -439,7 +434,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
   // Show a thread's passage on the page, or a passage's thread in the comments.
   const activate = (id: string) => {
     setActiveId(id);
-    setSideOpen(true);
+    showSide(true);
     const range = ranges.current.get(id);
     if (range) {
       const rect = range.getBoundingClientRect();
@@ -640,9 +635,10 @@ export function WikiPageClient({ slug }: { slug: string }) {
     // sheet with its text in a narrow column and wide white margins either side.
     <div
       className={cn(
-        "flex flex-col gap-4",
-        !sideOpen && "lg:mx-auto lg:w-full lg:max-w-[52rem] print:max-w-none"
+        "flex flex-col gap-4 lg:mx-auto lg:w-full print:max-w-none",
+        sideOpen ? "lg:max-w-full" : "lg:max-w-[52rem]"
       )}
+      data-sidebars-moving={moving ?? undefined}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         {back}
@@ -687,6 +683,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
               <Pencil className="h-4 w-4" /> Edit
             </Button>
           ) : null}
+          {/* The one button for both sidebars: the documents list on the left, this column on the right. */}
           <Button
             size="sm"
             variant="outline"
@@ -694,15 +691,19 @@ export function WikiPageClient({ slug }: { slug: string }) {
             onClick={() => showSide(!sideOpen)}
             aria-expanded={sideOpen}
             aria-controls="page-side"
-            title={sideOpen ? "Hide On this page and Comments" : "Show On this page and Comments"}
+            title={
+              sideOpen
+                ? `Hide the sidebars${shell ? " ( [ )" : ""}`
+                : `Show the sidebars — documents, On this page and Comments${shell ? " ( ] )" : ""}`
+            }
             data-page-side-toggle
           >
             {sideOpen ? (
-              <PanelRightClose className="h-4 w-4" aria-label="Hide the side column" />
+              <Columns3 className="h-4 w-4" aria-label="Hide the sidebars" />
             ) : (
               <>
-                <PanelRightOpen className="h-4 w-4" aria-hidden /> Comments
-                {threads.length ? ` (${threads.length})` : ""}
+                <Columns3 className="h-4 w-4" aria-hidden />
+                {threads.length ? `Comments (${threads.length})` : "Sidebars"}
               </>
             )}
           </Button>
@@ -710,8 +711,14 @@ export function WikiPageClient({ slug }: { slug: string }) {
       </div>
       {showHistory ? historyPanel : null}
       <div
-        className={cn("grid items-start gap-6", sideOpen && "lg:grid-cols-[minmax(0,1fr)_20rem]")}
+        className={cn(
+          "grid items-start gap-6",
+          sideOpen
+            ? "lg:grid-cols-[minmax(0,1fr)_20rem]"
+            : "lg:grid-cols-[minmax(0,1fr)_0rem] lg:gap-x-0"
+        )}
         data-page-side={sideOpen ? "open" : "closed"}
+        data-sidebars-moving={moving ?? undefined}
       >
         <article className="document-sheet flex min-w-0 flex-col" data-page-sheet>
           {/* The page's head: its circle, title, date, and where it stands with the circle. */}
@@ -895,8 +902,9 @@ export function WikiPageClient({ slug }: { slug: string }) {
         <aside
           id="page-side"
           className={cn(
-            "flex flex-col gap-4 lg:sticky lg:top-20 lg:-mx-2 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:px-2 lg:pb-4 lg:pt-2 print:hidden",
-            !sideOpen && "lg:hidden"
+            // While it slides, the column keeps its width and moves with its left edge.
+            "flex flex-col gap-4 lg:sticky lg:top-20 lg:-mx-2 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overflow-x-hidden lg:px-2 lg:pb-4 lg:pt-2 lg:[&>*]:w-80 lg:[&>*]:shrink-0 print:hidden",
+            !sideShown && "lg:hidden"
           )}
         >
           {toc.length >= 3 ? (
@@ -934,7 +942,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             setPendingQuote(prompt.text);
-            setSideOpen(true);
+            showSide(true);
             dismissPrompt();
             window.getSelection()?.removeAllRanges();
             document

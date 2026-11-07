@@ -541,7 +541,8 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   **Export all** of it takes the sub groups' too); choosing Community lists its own, since every
   circle's is **All documents**; the circle filter and the Type filter change the
   address the same way, and reading a page marks its circle. On a wide screen it stays in view and
-  **[** hides it, **]** brings it back (remembered in the browser); on a phone a **Browse** button
+  **[** hides it, **]** brings it back (remembered in the browser; on a page, together with the
+  page's own column — see **The sidebars**); on a phone a **Browse** button
   slides it in. Over a page's title a trail reads circle › parent › …, and at the end of the page
   **Pages inside** lists the pages under it, with **New page inside** for those who keep the page
   (the Write-a-page dialog, with the parent shown; `POST /api/wiki/pages` with `parentId`). The
@@ -911,12 +912,19 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
 - **Save as PDF** – a page's **Save as PDF** button opens the browser's print window, where "Save
   as PDF" is a destination (on a phone, its print or share sheet). The print layout (`globals.css`,
   `print:hidden` on the controls) is just the page — its circle, title, date and words — without
-  buttons, comments or sidebars; folded sections are opened for it, and the file is named after the
+  buttons, comments or sidebars, and the file is named after the
   page (`saveAsPdf` in `components/wiki/wiki-page.tsx`).
-- **The side column** – on a wide screen, a page's **On this page** and **Comments** column folds
-  away with the button at the end of the page's buttons, widening the page; **Comments (N)** brings
-  it back (remembered in the browser, `cvc-page-side`). Starting a comment on selected words, or
-  clicking a passage someone commented on, opens it again.
+- **The sidebars** – on a wide screen, one button at the end of a page's buttons folds away both
+  sidebars at once — the documents sidebar on the left and the page's **On this page** and
+  **Comments** column on the right — leaving the page a page's width in the middle; **Sidebars**
+  (or **Comments (N)**) brings both back, as do **[** and **]**. One state for both, remembered in
+  the browser (`cvc-docs-sidebar`; the shell's `sidebars` in `docs-context.ts`). They move
+  together: folding, a small step back the other way first, then they slide out; coming back, they
+  slide in past where they belong and bounce into place (their columns' widths, timed in
+  `globals.css` under `data-sidebars-moving`; no movement for those whose device asks for less).
+  On a page the documents sidebar has no button of its own; on the Documents list it keeps one and
+  folds to a narrow strip. Starting a comment on selected words, or clicking a passage someone
+  commented on, opens them again.
 - **Tab** – in the editor (pages and Custom Text modules), Tab types a tab, as
   in a word processor; in a list it still indents the item, and in a table it still moves to the
   next cell. Shift+Tab takes back a tab just typed. Escape and then Tab moves on out of the editor,

@@ -483,6 +483,71 @@ mark.wiki-mark {
 }
 
 /* Save as PDF (printing a page): just the document, on plain paper, its pictures and tables kept whole. */
+/*
+ * The documents sidebar and a page's own column folding away and back together
+ * (`docs-shell.tsx`, `wiki-page.tsx`): their columns' widths, the gaps beside them and
+ * the page's width move while `data-sidebars-moving` is set, for as long as the shell's
+ * `MOTION_MS` says. Folding: a small step back the other way, then out, faster and faster.
+ * Coming back: in, past where they belong, and bouncing into place. A browser without
+ * `linear()` easing takes the curve before it (a step back; one overshoot).
+ */
+@media (min-width: 1024px) {
+  [data-sidebars-moving] {
+    transition-property: grid-template-columns, column-gap, max-width;
+  }
+  [data-sidebars-moving="out"] {
+    transition-duration: 420ms;
+    transition-timing-function: cubic-bezier(0.6, -0.28, 0.735, 0.045);
+    transition-timing-function: linear(
+      0,
+      -0.007 8.3%,
+      -0.023 16.7%,
+      -0.041 25%,
+      -0.052 33.3%,
+      -0.049 41.7%,
+      -0.025 50%,
+      0.028 58.3%,
+      0.119 66.7%,
+      0.253 75%,
+      0.44 83.3%,
+      0.686 91.7%,
+      1
+    );
+  }
+  [data-sidebars-moving="in"] {
+    transition-duration: 760ms;
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition-timing-function: linear(
+      0,
+      0.154 5%,
+      0.47 10%,
+      0.782 15%,
+      1.006 20%,
+      1.121 25%,
+      1.147 30%,
+      1.12 35%,
+      1.073 40%,
+      1.028 45%,
+      0.996 50%,
+      0.981 55%,
+      0.978 60%,
+      0.983 65%,
+      0.99 70%,
+      0.997 75%,
+      1.001 80%,
+      1.003 85%,
+      1.003 90%,
+      1.002 95%,
+      1
+    );
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sidebars-moving] {
+    transition: none;
+  }
+}
+
 @media print {
   @page {
     margin: 16mm 14mm;
