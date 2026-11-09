@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Proposal } from "@/lib/proposals/shared";
 import {
+  withoutTitle,
   NameBook,
   convertBody,
   linkMarkdown,
@@ -173,7 +174,14 @@ describe("a page's own syntax, made plain Markdown", () => {
     );
   });
 
-  it("turns highlights, collapsible sections and callouts into Markdown and HTML", () => {
+  it("doesn't repeat a page's title when its text starts with it", () => {
+    expect(withoutTitle("# Pond rules\n\nNo swimming.", "Pond rules")).toBe("\nNo swimming.");
+    expect(withoutTitle("  # pond RULES #\nNo swimming.", "Pond rules")).toBe("No swimming.");
+    expect(withoutTitle("# Boats\n\nCanoes.", "Pond rules")).toBe("# Boats\n\nCanoes.");
+    expect(withoutTitle("## Pond rules\n", "Pond rules")).toBe("## Pond rules\n");
+  });
+
+  it("turns highlights, old collapsible sections and callouts into Markdown, as the app shows them", () => {
     const out = convertBody(
       [
         'Note :mark[this bit]{color="yellow"} well.',
@@ -195,20 +203,16 @@ describe("a page's own syntax, made plain Markdown", () => {
     expect(out).toBe(
       [
         "Note <mark>this bit</mark> well.",
-        "<details>",
-        "<summary>Winter &lt;care&gt;</summary>",
+        "**Winter \\<care>**",
         "",
         "Empty the ash pan.",
         "",
-        "</details>",
         "> Ask [Mowing](Mowing.md) first.",
         ">",
-        "> <details>",
-        "> <summary>More</summary>",
+        "> **More**",
         ">",
         "> Inside.",
         ">",
-        "> </details>",
         "",
         "After.",
       ].join("\n")

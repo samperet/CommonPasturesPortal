@@ -27,7 +27,9 @@ import {
   type RestoreRecord,
   type SubscriptionView,
 } from "@/lib/backups/shared";
+import { ALL_PARTS, EXPORT_PARTS, isEverything, type ExportPart } from "@/lib/backups/contents";
 import { RestoreTest } from "@/components/backups/restore-test";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,7 +46,9 @@ import { cn } from "@/lib/utils";
  * address for an agent or script (shown once), a copy in storage of your
  * own (tested before it's kept) — and the backups kept, each to download
  * with its fingerprint and timestamp proof. Admins also see **Export now**
- * (made, kept, sent to everyone signed up, and downloaded), **Complete
+ * — choosing what goes in (`EXPORT_PARTS`): everything is a backup (made,
+ * kept, sent to everyone signed up, and downloaded); only some is an export
+ * (downloaded, kept a day, sent to nobody) — **Complete
  * backup** (everything a restore needs; admins only, sent to nobody), whether
  * the weekly one is scheduled, and the **Restore test** (`restore-test.tsx`).
  */
@@ -480,7 +484,148 @@ function BackupRow({ backup }: { backup: BackupRecord }) {
   );
 }
 
-/** Make a backup now and download it: a community one (sent to those signed up) or a complete one (admins only). */
+/**
+ * Export now: choose what goes in — every part (a backup like the weekly one:
+ * kept, sent to those signed up, and downloaded) or only some (an export:
+ * downloaded, kept a day for you, sent to nobody). The documents come
+ * readable either way: pages as Markdown with their formatting, files by name.
+ */
+function ExportChooser({ signedUp }: { signedUp: number }) {
+  const [open, setOpen] = useState(false);
+  const [parts, setParts] = useState<ExportPart[]>(ALL_PARTS);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const everything = isEverything(parts);
+  const make = useMutation({
+    mutationFn: () =>
+      apiFetch<{
+        backup?: BackupRecord;
+        export?: { href: string; fileName: string; size: number };
+      }>("/api/backups", {
+        method: "POST",
+        body: JSON.stringify({ kind: "community", parts }),
+      }),
+    onSuccess: (made) => {
+      setOpen(false);
+      if (made.backup) {
+        const backup = made.backup;
+        queryClient.setQueryData<BackupsData>(["backups"], (old) =>
+          old
+            ? { ...old, backups: [backup, ...old.backups.filter((b) => b.id !== backup.id)] }
+            : old
+        );
+        void queryClient.invalidateQueries({ queryKey: ["backups"] });
+        toast({
+          title: "Backup made",
+          description: `${formatBytes(backup.bytes)} — downloading it`,
+        });
+        window.location.assign(`/api/backups/${backup.id}`);
+      } else if (made.export) {
+        toast({
+          title: "Export made",
+          description: `${formatBytes(made.export.size)} — downloading it`,
+        });
+        window.location.assign(made.export.href);
+      }
+    },
+    onError: (error: Error) =>
+      toast({
+        title: "The export couldn't be made",
+        description: error.message,
+        variant: "destructive",
+      }),
+  });
+  const toggle = (part: ExportPart) =>
+    setParts((current) =>
+      current.includes(part) ? current.filter((entry) => entry !== part) : [...current, part]
+    );
+  return (
+    <>
+      <Button className="gap-1.5" onClick={() => setOpen(true)} data-backup-export="community">
+        <Archive className="h-4 w-4" /> Export now
+      </Button>
+      {open ? (
+        <Dialog
+          title="Export now"
+          icon={<Archive className="h-5 w-5 text-primary" />}
+          onClose={() => (make.isPending ? undefined : setOpen(false))}
+        >
+          <form
+            className="flex flex-col gap-4"
+            data-export-chooser
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (parts.length) make.mutate();
+            }}
+          >
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                What to export
+                <button
+                  type="button"
+                  className="text-xs font-medium text-secondary-foreground hover:underline"
+                  onClick={() => setParts(everything ? [] : ALL_PARTS)}
+                >
+                  {everything ? "Choose none" : "Choose all"}
+                </button>
+              </legend>
+              {ALL_PARTS.map((part) => (
+                <label
+                  key={part}
+                  className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border bg-white px-3 py-2 text-sm"
+                  data-export-part={part}
+                >
+                  <input
+                    type="checkbox"
+                    checked={parts.includes(part)}
+                    onChange={() => toggle(part)}
+                    className="mt-0.5 accent-[#3f7d5c]"
+                  />
+                  <span className="flex flex-col">
+                    <span className="font-medium text-foreground">{EXPORT_PARTS[part].label}</span>
+                    <span className="text-xs text-muted">{EXPORT_PARTS[part].about}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <p className="text-sm text-foreground-light" data-export-note>
+              {!parts.length
+                ? "Choose at least one."
+                : everything
+                  ? `Everything: a backup like Monday's — kept here, ${
+                      signedUp === 0
+                        ? "sent to whoever signs up for them (nobody yet)"
+                        : `sent to ${
+                            signedUp === 1 ? "the 1 resident" : `the ${signedUp} residents`
+                          } signed up for them`
+                    }, and downloaded.`
+                  : "Only what's chosen: downloaded, and kept a day for you to download again. It isn't kept as a backup or sent to anyone."}{" "}
+              {parts.includes("documents")
+                ? "Pages come as Markdown files that keep their formatting, readable in any editor; files come by name."
+                : ""}{" "}
+              It can take a few minutes.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                disabled={make.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!parts.length || make.isPending}>
+                {make.isPending ? "Making it…" : everything ? "Export everything" : "Export"}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+    </>
+  );
+}
+
+/** Make a complete backup now and download it (admins only; sent to nobody). */
 function ExportButton({ kind, signedUp }: { kind: BackupKind; signedUp: number }) {
   const confirm = useConfirm();
   const { toast } = useToast();
@@ -561,7 +706,7 @@ export function BackupsClient() {
         </div>
         {isAdmin ? (
           <div className="flex flex-wrap gap-2">
-            <ExportButton kind="community" signedUp={data.signedUp ?? 0} />
+            <ExportChooser signedUp={data.signedUp ?? 0} />
             <ExportButton kind="complete" signedUp={data.signedUp ?? 0} />
           </div>
         ) : null}
@@ -623,8 +768,9 @@ export function BackupsClient() {
         <p>
           Open the zip and start with <code>README.md</code>. <code>data/</code> holds every
           document and file as CVC stores them (JSON, readable by any program or agent),{" "}
-          <code>pages/</code> each written page as Markdown, and <code>manifest.json</code> lists
-          every file with its size and fingerprint.
+          <code>documents/</code> the documents to read without CVC — each page as a Markdown file
+          that keeps its formatting, in a folder for its circle, and files by name — and{" "}
+          <code>manifest.json</code> lists every file with its size and fingerprint.
         </p>
         <p>
           A backup&apos;s fingerprint is the SHA-256 of its zip (<code>shasum -a 256</code>). Its

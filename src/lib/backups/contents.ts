@@ -5,6 +5,11 @@ import type { BackupKind } from "./shared";
  * stored object goes under `data/` at its storage key, described by the
  * dataset it belongs to in `manifest.json` and the README.
  *
+ * An export can be made of only some of it: the parts a person picks
+ * (`EXPORT_PARTS`), each a set of datasets (`partOf`). With documents, the
+ * zip also has them readable — `documents/`, pages as Markdown with their
+ * formatting, files by name (`lib/documents/export.ts`).
+ *
  * A **community** backup (the weekly one, sent to residents who sign up)
  * holds what every resident can see: it also leaves out private messages,
  * the app's push key and devices, what only admins see (the sign-in and email
@@ -117,6 +122,74 @@ const DATASETS: [RegExp, string, string][] = [
   [/^onboarding\//, "onboarding", "New member invitations and welcome resources (JSON)"],
 ];
 
+/** What an export can be made of: the parts a person picks, in the order they're offered. */
+export const EXPORT_PARTS = {
+  documents: {
+    label: "Documents",
+    about:
+      "Pages as readable Markdown, uploaded files by name, links, proposals, photos in pages, and their history and comments",
+  },
+  photos: { label: "Photos", about: "The shared photo gallery" },
+  people: {
+    label: "Directory and circles",
+    about: "Residents, households, profiles and their photos, skills, circles and their members",
+  },
+  conversations: {
+    label: "Conversations",
+    about: "The forum, circle forums, alerts, appreciations and recommendations",
+  },
+  work: { label: "Circle work", about: "Tasks, logs, duty schedules and circles' finances" },
+  other: {
+    label: "Everything else",
+    about: "The loan library, homes for sale, accounts and settings",
+  },
+  code: { label: "The site's code", about: "The Portal's own code, to run it again" },
+} as const;
+export type ExportPart = keyof typeof EXPORT_PARTS;
+export const ALL_PARTS = Object.keys(EXPORT_PARTS) as ExportPart[];
+
+/** Which part each dataset is in (any not named: "other"). */
+const PART_OF: Record<string, ExportPart> = {
+  pages: "documents",
+  "page-history": "documents",
+  "page-comments": "documents",
+  "page-versions": "documents",
+  wiki: "documents",
+  "wiki-polls": "documents",
+  "wiki-comments": "documents",
+  "page-photos": "documents",
+  files: "documents",
+  documents: "documents",
+  "proposal-snapshots": "documents",
+  proposals: "documents",
+  outline: "documents",
+  photos: "photos",
+  directory: "people",
+  circles: "people",
+  profiles: "people",
+  skills: "people",
+  cars: "people",
+  onboarding: "people",
+  forum: "conversations",
+  "circle-forums": "conversations",
+  alerts: "conversations",
+  chat: "conversations",
+  appreciations: "conversations",
+  resources: "conversations",
+  tasks: "work",
+  logs: "work",
+  finances: "work",
+  eggs: "work",
+  schedules: "work",
+};
+
+/** The part a dataset belongs to. */
+export const partOf = (dataset: string): ExportPart => PART_OF[dataset] ?? "other";
+
+/** Every part, or not. */
+export const isEverything = (parts: readonly ExportPart[]) =>
+  ALL_PARTS.every((part) => parts.includes(part));
+
 /** Which dataset a stored object belongs to, and what that dataset is. */
 export function datasetOf(key: string): { dataset: string; about: string } {
   const found = DATASETS.find(([pattern]) => pattern.test(key));
@@ -133,7 +206,10 @@ export const safeName = (name: string) =>
     .trim()
     .slice(0, 100) || "Untitled";
 
-/** The README at the top of a backup. */
+/** How the readable documents fared: in the zip, too big to copy twice, or not asked for. */
+export type ReadableDocuments = "included" | "too big" | "not chosen";
+
+/** The README at the top of a backup (or an export of some of it). */
 export function backupReadme(info: {
   at: string;
   kind: BackupKind;
@@ -141,22 +217,48 @@ export function backupReadme(info: {
   files: number;
   site: { included: boolean; repository: string | null; commit: string | null };
   datasets: { dataset: string; about: string; files: number }[];
+  /** The parts in it (every part, unless it's an export of some). */
+  parts?: readonly ExportPart[];
+  documents?: ReadableDocuments;
 }) {
   const complete = info.kind === "complete";
-  return `# Common Pastures (CVC) — ${complete ? "complete backup" : "backup"} of ${info.at}
+  const parts = info.parts ?? ALL_PARTS;
+  const some = !isEverything(parts);
+  const documents = info.documents ?? "included";
+  return `# Common Pastures (CVC) — ${
+    complete ? "complete backup" : some ? "export" : "backup"
+  } of ${info.at}
 
 ${
   complete
     ? "Everything the app needs to be restored, as of this moment, from " +
       `${info.siteUrl}. A complete backup is for CVC's admins only.`
-    : `Everything every resident can see in the app, as of this moment, from ${info.siteUrl}.`
+    : `${
+        some ? "Some of what" : "Everything"
+      } every resident can see in the app, as of this moment, from ${info.siteUrl}.`
+}${
+    some
+      ? `\n\nIt holds only what was chosen: ${parts
+          .map((part) => EXPORT_PARTS[part].label.toLowerCase())
+          .join(", ")}.`
+      : ""
+  }
+${
+  documents === "included"
+    ? `
+- **\`documents/\`** — the documents, to read without the app: each page as Markdown with its
+  formatting (headings, lists, tables, highlights, links between pages that work in the folder),
+  in a folder for its circle; uploaded files by name, as their latest version; links and
+  proposals as short notes; photos in pages in \`images/\`; and a README listing them all.`
+    : documents === "too big"
+      ? `
+- **\`documents/\`** — left out: the files are too many to copy twice. They're all under
+  \`data/documents/files/\`, and the pages' Markdown is in \`data/wiki/pages.json\`.`
+      : ""
 }
-
 - **\`data/\`** — every stored object (${info.files} files), each at its storage key: the app's
   data as JSON documents, and uploaded files and photos as they were uploaded. This is what the
   app reads; it can be restored to a bucket key for key (each file's type is in the manifest).
-- **\`pages/\`** — each written page as Markdown, in a folder for its circle (also in
-  \`data/wiki/pages.json\`), for reading without the app.
 - **\`manifest.json\`** — for agents and scripts: every file's path, size, type, SHA-256 and
   dataset, what each dataset holds, and what's left out.
 - **\`site/\`** — ${
@@ -196,10 +298,14 @@ ${
       "can read it."
 }
 
-## Proving it
+${
+  some
+    ? ""
+    : `## Proving it
 
 The zip's SHA-256 fingerprint was timestamped with OpenTimestamps (anchored in Bitcoin): the
 \`.ots\` proof beside it, from the backups page, shows it existed unchanged on this date —
 \`ots verify backup.zip.ots\` (https://opentimestamps.org).
-`;
+`
+}`;
 }

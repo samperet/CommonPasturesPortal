@@ -255,17 +255,33 @@ session is, so admin status is checked server-side on every request; the user me
 
 **Backups** (`/backups`, unlisted — no menu links to it) keep CVC's data somewhere besides its
 own storage. Every Monday morning (Vercel Cron, `vercel.json`, calling `/api/cron/backup` with
-`CRON_SECRET`) — or when an admin presses **Export now** on that page — `lib/backups/make.ts` makes
-one zip, streamed into storage at `backups/<id>.zip`; the newest eight are kept
-(`backups/index.json`). Inside, under `cvc-backup-<date>/`:
+`CRON_SECRET`) — or when an admin presses **Export now** on that page and keeps every part chosen —
+`lib/backups/make.ts` makes one zip, streamed into storage at `backups/<id>.zip`; the newest eight
+are kept (`backups/index.json`). Inside, under `cvc-backup-<date>/`:
 
 - `data/` — every stored object at its storage key (JSON documents, files as uploaded): what the
   app reads, so it can be restored key for key, and what an agent or script reads.
-- `pages/<circle>/<title>.md` — each written page as Markdown with front matter.
+- `documents/` — the documents to read without the app, made as the Documents page's export makes
+  them (`lib/documents/export.ts`, published pages only): each page as a Markdown file in a folder
+  for its circle, keeping its formatting — headings, lists, tables, bold and italics, highlights
+  (`<mark>`), callouts as quotes, links between pages that work inside the folder, an old
+  collapsible section as its title in bold and then its words, and no title twice — with its
+  details as front matter; uploaded files by name, as their latest version; links and proposals as
+  short notes; photos in pages in `images/`; and a `README.md` listing them by circle. (If the
+  files would be too many to copy twice, it's left out and the README says so.)
 - `site/source.zip` — the app's code at the deployed commit, from GitHub (with
   `GITHUB_BACKUP_TOKEN`).
 - `manifest.json` (every file's path, size, SHA-256 and dataset; what each dataset holds; what's
   left out) and `README.md`.
+
+**Export now** first asks what to export (`EXPORT_PARTS` in `lib/backups/contents.ts`, every
+stored dataset in one: **Documents**, **Photos**, **Directory and circles**, **Conversations**,
+**Circle work**, **Everything else**, **The site's code**), all chosen to start with. Every part
+makes the backup above, kept and sent as the weekly one is. Only some makes an **export** of those
+parts — the same layout, its `README.md` saying what was chosen, under `cvc-export-<date>/` —
+downloaded at once and kept a day for the admin who made it (as the Documents page's exports are,
+`exports/`), but not kept as a backup, timestamped, or sent to anyone (`POST /api/backups` with
+`parts`).
 
 A backup holds only what every resident can see in the app (`lib/backups/contents.ts`): private
 messages, what only admins see (the sign-in log and last seen, the email log, quota and settings,

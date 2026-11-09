@@ -24,7 +24,8 @@ import { shortDate, todayInVermont } from "@/lib/time";
  *   the export (relatively), or else to the app; a page that isn't there, or
  *   can't be seen, is just its words;
  * - `:mark[words]{color}` → `<mark>words</mark>`;
- * - `:::details{title}` → `<details><summary>title</summary> … </details>`;
+ * - `:::details{title}` (a collapsible section from before they were taken
+ *   out) → its title in bold, then what it held, as the app shows it;
  * - `:::callout` → a quote (`> `);
  * - `::poll{id}` → the question, and each option with its votes;
  * - `::proposal{id}` → the proposal, quoted: where it stands, and a link;
@@ -136,8 +137,6 @@ const longDay = (date: string) => shortDate(date, true);
 const circleName = (ctx: ExportContext, id: string) =>
   ctx.circles.find((circle) => circle.id === id)?.name ?? "A circle";
 const escapeLabel = (text: string) => text.replace(/([\\[\]])/g, "\\$1");
-const escapeHtml = (text: string) =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Details first, as YAML (strings quoted as JSON, which YAML reads); empty ones left out. */
 function frontMatter(fields: [string, string | string[] | null | undefined][]) {
@@ -348,15 +347,14 @@ function bodyLines(body: string, from: From, ctx: ExportContext, depth = 0): str
     if (container) {
       const [, name, rest] = container;
       if (name === "details") {
-        push("<details>", `<summary>${escapeHtml(detailsTitle(rest.trim()))}</summary>`, "");
+        push(`**${detailsTitle(rest.trim()).replace(/([*_\\<])/g, "\\$1")}**`, "");
         open.push("details");
       } else open.push(name === "callout" ? "callout" : "other");
       continue;
     }
     if (/^\s*:{3,}\s*$/.test(line) && open.length) {
       const closing = open.pop();
-      if (closing === "details") push("", "</details>");
-      else if (closing === "callout") push("");
+      if (closing === "details" || closing === "callout") push("");
       continue;
     }
     const leaf = /^[ \t]*::(poll|proposal|embed)\{([^}\n]*)\}[ \t]*$/i.exec(line);
@@ -382,6 +380,14 @@ export const convertBody = (body: string, from: From, ctx: ExportContext) =>
   bodyLines(body, from, ctx).join("\n");
 
 // --- Files ------------------------------------------------------------------------------------
+
+/** A page's text without a first heading that only repeats its title (the file's own heading says it). */
+export function withoutTitle(body: string, title: string) {
+  const first = /^\s*#[ \t]+(.+?)[ \t#]*(?:\r?\n|$)/.exec(body);
+  return first && first[1].trim().toLowerCase() === title.trim().toLowerCase()
+    ? body.slice(first[0].length)
+    : body;
+}
 
 /** A written page as a Markdown file. */
 export function pageMarkdown(page: ExportPage, path: string, ctx: ExportContext) {
@@ -417,7 +423,7 @@ export function pageMarkdown(page: ExportPage, path: string, ctx: ExportContext)
     `# ${page.title}`,
     "",
     ...(notes.length ? [`*${notes.join(" · ")}*`, ""] : []),
-    convertBody(page.body, { path, circleId: page.keeper }, ctx).trim(),
+    convertBody(withoutTitle(page.body, page.title), { path, circleId: page.keeper }, ctx).trim(),
   ];
   if (page.transcript?.trim())
     lines.push(

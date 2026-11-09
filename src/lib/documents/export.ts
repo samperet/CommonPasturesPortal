@@ -470,17 +470,27 @@ const normalize = (raw: unknown): ExportRecord[] => {
 };
 
 /** Make the zip into storage and keep it a day for `userId` (deleting exports older than that). */
-export async function saveExport(
+export const saveExport = (
   userId: string,
   plan: ExportPlan,
   bytes: AsyncIterable<Uint8Array> = zipExport(plan)
+) => keepExport(userId, plan.fileName, bytes);
+
+/**
+ * Keep a zip (from here, or a backup's export of some parts) a day for
+ * `userId` to download, as `fileName` (deleting exports older than that).
+ */
+export async function keepExport(
+  userId: string,
+  fileName: string,
+  bytes: AsyncIterable<Uint8Array>
 ): Promise<ExportRecord> {
   const id = randomUUID();
   const size = await writeBinaryStream(zipKey(id), bytes, "application/zip");
   const record: ExportRecord = {
     id,
     userId,
-    fileName: plan.fileName,
+    fileName,
     size,
     createdAt: new Date().toISOString(),
   };

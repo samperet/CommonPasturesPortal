@@ -3,7 +3,8 @@ import { waitUntil } from "@vercel/functions";
 import { z } from "zod";
 import { listBackups, listRestores, listSubscribers, subscriptionOf } from "@/lib/backups/store";
 import { backupContext } from "@/lib/backups/http";
-import { makeBackup } from "@/lib/backups/make";
+import { makeBackup, makeExport } from "@/lib/backups/make";
+import { ALL_PARTS, isEverything, type ExportPart } from "@/lib/backups/contents";
 import { sendBackup } from "@/lib/backups/send";
 import { forbidden, problem, readBody, throttled } from "@/lib/http";
 
@@ -16,9 +17,17 @@ export const maxDuration = 300;
  * too, how many are signed up, whether the weekly one is scheduled, and the
  * restore tests run. POST (admins): make one now — `community` (the default:
  * kept with the others and sent to everyone signed up, as the weekly one is)
- * or `complete` (kept for admins only, sent to nobody).
+ * or `complete` (kept for admins only, sent to nobody). With `parts` that
+ * aren't all of them, it's an export of those parts instead: kept a day for
+ * the admin who made it, sent to nobody (`{ export }`, downloaded from `href`).
  */
-const makeSchema = z.object({ kind: z.enum(["community", "complete"]).default("community") });
+const makeSchema = z.object({
+  kind: z.enum(["community", "complete"]).default("community"),
+  parts: z
+    .array(z.enum(ALL_PARTS as [ExportPart, ...ExportPart[]]))
+    .min(1, "Choose something to export")
+    .optional(),
+});
 
 export async function GET() {
   const ctx = await backupContext();
@@ -51,6 +60,25 @@ export async function POST(request: NextRequest) {
   if (!ctx.actor.admin) return forbidden("Only admins can make a backup now");
   const parsed = await readBody(request, makeSchema, {});
   if ("error" in parsed) return parsed.error;
+  const { kind, parts } = parsed.data;
+  if (kind === "community" && parts && !isEverything(parts)) {
+    try {
+      // In the order they're offered, whatever order they came in.
+      const chosen = ALL_PARTS.filter((part) => parts.includes(part));
+      const made = await makeExport(ctx.actor.name, ctx.actor.userId, chosen);
+      return NextResponse.json({
+        export: {
+          href: `/api/documents/export/${made.id}`,
+          fileName: made.fileName,
+          size: made.size,
+          parts: chosen,
+        },
+      });
+    } catch (error) {
+      console.error("[backups] couldn't export", error instanceof Error ? error.name : "error");
+      return problem("The export couldn't be made — try again in a while", 500);
+    }
+  }
   try {
     const backup = await makeBackup(ctx.actor.name, parsed.data.kind);
     if (parsed.data.kind === "community") waitUntil(sendBackup(backup));

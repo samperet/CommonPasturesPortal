@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { backupReadme, datasetOf, leftOut, leftOutOf, safeName } from "./contents";
+import {
+  ALL_PARTS,
+  backupReadme,
+  datasetOf,
+  isEverything,
+  leftOut,
+  leftOutOf,
+  partOf,
+  safeName,
+} from "./contents";
 
 describe("backup contents", () => {
   it("leaves out private messages, secrets and what's temporary", () => {
@@ -75,6 +84,54 @@ describe("backup contents", () => {
     expect(complete).toContain("for CVC's admins only");
     expect(complete).not.toContain("`chat/`");
     expect(complete).toContain("private messages between residents");
+  });
+
+  it("sorts every stored object into a part someone can choose", () => {
+    const part = (key: string) => partOf(datasetOf(key).dataset);
+    expect(part("wiki/pages.json")).toBe("documents");
+    expect(part("wiki-images/abc.jpg")).toBe("documents");
+    expect(part("documents/files/x/1.pdf")).toBe("documents");
+    expect(part("proposals/snapshots/p/1.json")).toBe("documents");
+    expect(part("photos/index.json")).toBe("photos");
+    expect(part("directory/directory.json")).toBe("people");
+    expect(part("profiles/photos/a.jpg")).toBe("people");
+    expect(part("forum/index.json")).toBe("conversations");
+    expect(part("appreciations/index.json")).toBe("conversations");
+    expect(part("tasks/lcc.json")).toBe("work");
+    expect(part("circles/finances/lcc.json")).toBe("work");
+    expect(part("library/items.json")).toBe("other");
+    expect(part("somewhere/new.json")).toBe("other");
+    expect(isEverything(ALL_PARTS)).toBe(true);
+    expect(isEverything(["documents", "photos"])).toBe(false);
+  });
+
+  it("an export of some parts says what it holds, with its documents readable, and claims no timestamp", () => {
+    const readme = backupReadme({
+      at: "2026-11-09",
+      kind: "community",
+      siteUrl: "https://example.org",
+      files: 2,
+      site: { included: false, repository: null, commit: null },
+      datasets: [],
+      parts: ["documents", "photos"],
+      documents: "included",
+    });
+    expect(readme).toContain("export of 2026-11-09");
+    expect(readme).toContain("It holds only what was chosen: documents, photos.");
+    expect(readme).toContain("each page as Markdown with its");
+    expect(readme).not.toContain("OpenTimestamps");
+    const whole = backupReadme({
+      at: "2026-11-09",
+      kind: "community",
+      siteUrl: "https://example.org",
+      files: 2,
+      site: { included: false, repository: null, commit: null },
+      datasets: [],
+      documents: "too big",
+    });
+    expect(whole).toContain("backup of 2026-11-09");
+    expect(whole).toContain("left out: the files are too many to copy twice");
+    expect(whole).toContain("OpenTimestamps");
   });
 
   it("a complete backup keeps everything a restore needs, but earlier backups and what's temporary", () => {
