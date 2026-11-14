@@ -58,6 +58,8 @@ export function ProposalListingRow({
         <ShareButton
           path={`/proposals/${proposal.id}`}
           title={proposal.title}
+          circleId={proposal.circleId}
+          label="Proposal"
           compact
           className={cn("-my-1 ml-auto shrink-0", ON_HOVER)}
         />

@@ -63,6 +63,8 @@ export function PageListingRow({
           <ShareButton
             path={`/wiki/${page.slug}`}
             title={page.title}
+            circleId={page.circleId}
+            label="Page"
             compact
             className={cn("-my-1 ml-auto shrink-0", ON_HOVER)}
           />

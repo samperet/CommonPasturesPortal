@@ -395,7 +395,14 @@ export function DocumentRow({
       )}
     >
       <StarButton doc={{ kind: "file", id: doc.id }} title={doc.title} compact className={action} />
-      <ShareButton path={`/documents/${doc.id}`} title={doc.title} compact className={action} />
+      <ShareButton
+        path={`/documents/${doc.id}`}
+        title={doc.title}
+        circleId={doc.circleId}
+        label={version.link ? LINK_LABELS[version.link.kind] : doc.typeLabel || "File"}
+        compact
+        className={action}
+      />
       {sheetHref ? (
         <Link
           href={sheetHref}

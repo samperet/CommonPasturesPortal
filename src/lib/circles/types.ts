@@ -40,6 +40,8 @@ export interface Circle {
   seats: CircleSeat[];
   /** Uploaded by the circle; not part of the import. */
   iconUrl?: string | null;
+  /** The icon's signed address, for a shared document's card in an email (`lib/circles/icon-link.ts`). */
+  shareIconUrl?: string | null;
   /** Unset means "apply": members approve who joins (as before joining existed). */
   joinPolicy?: JoinPolicy;
   /** "club" for a social club; unset for an official, sociocratically formed circle. */

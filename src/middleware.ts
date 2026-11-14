@@ -138,6 +138,14 @@ export async function middleware(request: NextRequest) {
   // A sign-in link, and the page it opens (the token is the key; using it takes a POST).
   if (/^\/(api\/auth\/link|login)\/[A-Za-z0-9_-]{20,64}$/.test(pathname))
     return NextResponse.next();
+  // A circle's icon at the signed address the app hands out (a shared document's card in an
+  // email); the route checks the signature, and asks anyone without one to sign in.
+  if (
+    request.method === "GET" &&
+    /^\/api\/circles\/[\w-]{1,80}\/icon$/.test(pathname) &&
+    request.nextUrl.searchParams.has("s")
+  )
+    return NextResponse.next();
   // Photos of homes for sale are on the public homepage.
   if (request.method === "GET" && /^\/api\/homes\/[0-9a-f-]{36}\/photo$/.test(pathname))
     return NextResponse.next();

@@ -645,7 +645,14 @@ export function WikiPageClient({ slug }: { slug: string }) {
         {back}
         <div className="flex flex-wrap items-center gap-2">
           <StarButton doc={{ kind: "page", id: page.id }} title={page.title} />
-          {page.draft ? null : <ShareButton path={`/wiki/${page.slug}`} title={page.title} />}
+          {page.draft ? null : (
+            <ShareButton
+              path={`/wiki/${page.slug}`}
+              title={page.title}
+              circleId={page.keeper}
+              label={meetingDate ? "Meeting notes" : "Page"}
+            />
+          )}
           <FollowButton slug={slug} following={!!data?.following} />
           <Button
             size="sm"

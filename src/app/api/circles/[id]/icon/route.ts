@@ -4,6 +4,7 @@ import { circleContext } from "@/lib/circles/access";
 import { iconKey, isCircleId, setCircleIcon } from "@/lib/circles/icons";
 import { deleteBinary, readBinary, writeBinary } from "@/lib/storage";
 import { MAX_IMAGE_BYTES, PRIVATE_IMAGE_HEADERS, readImageUpload } from "@/lib/images";
+import { iconSignatureValid } from "@/lib/circles/icon-link";
 import { problem, throttled } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +17,26 @@ async function authorize(circleId: string) {
   return "error" in ctx ? ctx.error : null;
 }
 
-export async function GET(_request: Request, { params }: Params) {
-  const user = await getSessionUser();
-  if (!user) return problem("Sign in to view circle icons", 401);
+/**
+ * A circle's icon: for residents signed in — or, at the signed address the
+ * app hands out (`?v=…&s=…`, `lib/circles/icon-link.ts`), for anyone, such
+ * as a mail service showing a shared document's card.
+ */
+export async function GET(request: NextRequest, { params }: Params) {
+  const query = request.nextUrl.searchParams;
+  const signed = iconSignatureValid(params.id, query.get("v"), query.get("s"));
+  const user = signed ? null : await getSessionUser();
+  if (!signed && !user) return problem("Sign in to view circle icons", 401);
   if (!isCircleId(params.id)) return problem("Icon not found", 404);
   const icon = await readBinary(iconKey(params.id));
   if (!icon) return problem("Icon not found", 404);
   return new NextResponse(icon.bytes as unknown as BodyInit, {
-    headers: { "Content-Type": icon.contentType, ...PRIVATE_IMAGE_HEADERS },
+    headers: {
+      "Content-Type": icon.contentType,
+      ...(signed
+        ? { "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff" }
+        : PRIVATE_IMAGE_HEADERS),
+    },
   });
 }
 

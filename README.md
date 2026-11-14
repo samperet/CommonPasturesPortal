@@ -931,8 +931,16 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   Documents list on each page, file and proposal (on hover, or always on a touch screen). A page's
   link is its page, a proposal's its page, and a file's `/documents/<id>`, which opens the file
   (a link document goes where it points). Whoever opens one signs in first if they aren't, and comes
-  back to it. Where the browser won't let a page write the clipboard, it's copied the old way, or
-  the toast shows the link to copy by hand (`components/documents/share-button.tsx`).
+  back to it. It's copied two ways at once: as plain text, the link (for an address bar or a chat);
+  and as HTML, a small card — the circle's icon (or its initials in a green circle), the title as a
+  link, and "Land Care Circle · Page" (or Proposal, Google Doc, Minutes…) beneath — which Gmail,
+  Apple Mail, Outlook and most editors keep when it's pasted (`lib/documents/share-card.ts`: tables
+  and inline styles, the emails' colours). The icon is at a signed address
+  (`lib/circles/icon-link.ts`: `?v=…&s=…`, an HMAC over the circle and the icon's version with the
+  app's secret, handed out with each circle as `shareIconUrl`), which the icon route serves to
+  anyone — so a recipient's mail service can show it — while every other icon address still needs
+  a session. Where the browser won't let a page write the clipboard, it's copied the old way, card
+  and all, or the toast shows the link to copy by hand (`components/documents/share-button.tsx`).
 - **Save as PDF** – a page's **Save as PDF** button opens the browser's print window, where "Save
   as PDF" is a destination (on a phone, its print or share sheet). The print layout (`globals.css`,
   `print:hidden` on the controls) is just the page — its circle, title, date and words — without

@@ -46,7 +46,12 @@ export function ProposalPage({ id }: { id: string }) {
         <BackLink href={`/circles/${proposal.circleId}`} label={proposal.circleName} />
         <div className="flex items-center gap-2">
           <StarButton doc={{ kind: "proposal", id: proposal.id }} title={proposal.title} />
-          <ShareButton path={`/proposals/${proposal.id}`} title={proposal.title} />
+          <ShareButton
+            path={`/proposals/${proposal.id}`}
+            title={proposal.title}
+            circleId={proposal.circleId}
+            label="Proposal"
+          />
         </div>
       </div>
       <article className="document-sheet flex flex-col" data-proposal-page>

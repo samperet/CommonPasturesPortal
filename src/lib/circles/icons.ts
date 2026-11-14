@@ -1,6 +1,7 @@
 import { mutateJson, readJson } from "@/lib/storage";
 import type { DirectoryDocument } from "@/lib/directory/types";
 import type { Circle } from "@/lib/circles/types";
+import { signedIconPath } from "./icon-link";
 import { managesCircle } from "./tiers";
 
 /**
@@ -46,6 +47,8 @@ export function applyCircleIcon(circle: Circle, meta: IconMeta | undefined): Cir
   return {
     ...circle,
     iconUrl: meta ? `/api/circles/${circle.id}/icon?v=${encodeURIComponent(meta.updatedAt)}` : null,
+    // Signed, so a mail service can show it in a shared document's card (`icon-link.ts`).
+    shareIconUrl: meta ? signedIconPath(circle.id, meta.updatedAt) : null,
   };
 }
 
