@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Play, Trash2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useSession } from "@/lib/auth/client";
 import { preparePhoto, uploadImage } from "@/lib/image-client";
@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { SectionArt } from "@/components/layout/section-art";
 import { Loading, ErrorCard } from "@/components/ui/status";
 import { useConfirm } from "@/components/ui/confirm";
+import { Slideshow } from "@/components/photos/slideshow";
 
 const photoUrl = (photo: Photo) => `/api/photos/${photo.id}`;
 
@@ -121,17 +122,19 @@ function UploadPanel({ files, onDone }: { files: File[]; onDone: () => void }) {
   );
 }
 
-/** Full-screen view of one photo, with previous/next and, for its owner or an admin, caption editing and removal. */
+/** Full-screen view of one photo, with previous/next, a slideshow from here and, for its owner or an admin, caption editing and removal. */
 function Viewer({
   photos,
   index,
   onIndex,
   onClose,
+  onSlideshow,
 }: {
   photos: Photo[];
   index: number;
   onIndex: (index: number) => void;
   onClose: () => void;
+  onSlideshow: () => void;
 }) {
   const confirm = useConfirm();
   const { toast } = useToast();
@@ -218,6 +221,15 @@ function Viewer({
         <span className="text-sm tabular-nums text-white/70">
           {index + 1} / {photos.length}
         </span>
+        {photos.length > 1 ? (
+          <button
+            onClick={onSlideshow}
+            className="ml-auto mr-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 hover:text-white"
+            data-viewer-slideshow
+          >
+            <Play className="h-4 w-4" aria-hidden /> Slideshow
+          </button>
+        ) : null}
         <button
           ref={closeRef}
           onClick={onClose}
@@ -335,12 +347,25 @@ export function PhotosClient() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<File[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
+  // The slideshow: from which photo, and whether it came from the viewer (which it returns to).
+  const [show, setShow] = useState<{ startId: string | null; fromViewer: boolean } | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["photos"],
     queryFn: () => apiFetch<{ photos: Photo[] }>("/api/photos"),
+    // While the slideshow runs, photos added meanwhile come into it.
+    refetchInterval: show ? 60_000 : false,
   });
   const photos = data?.photos ?? [];
+
+  // `/photos?slideshow` starts the slideshow once the photos are in (say, on a screen in the common house).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current || photos.length < 2) return;
+    asked.current = true;
+    if (new URLSearchParams(window.location.search).has("slideshow"))
+      setShow({ startId: null, fromViewer: false });
+  }, [photos.length]);
 
   // Keep the viewer in range as photos come and go.
   useEffect(() => {
@@ -370,13 +395,25 @@ export function PhotosClient() {
             event.target.value = "";
           }}
         />
-        <Button
-          className="gap-1.5"
-          onClick={() => fileInput.current?.click()}
-          disabled={chosen !== null}
-        >
-          <ImagePlus className="h-4 w-4" /> Add photos
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {photos.length > 1 ? (
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShow({ startId: null, fromViewer: false })}
+              data-photos-slideshow
+            >
+              <Play className="h-4 w-4" /> Slideshow
+            </Button>
+          ) : null}
+          <Button
+            className="gap-1.5"
+            onClick={() => fileInput.current?.click()}
+            disabled={chosen !== null}
+          >
+            <ImagePlus className="h-4 w-4" /> Add photos
+          </Button>
+        </div>
       </div>
 
       {chosen ? (
@@ -422,8 +459,30 @@ export function PhotosClient() {
         </Card>
       )}
 
-      {open !== null && photos[open] ? (
-        <Viewer photos={photos} index={open} onIndex={setOpen} onClose={close} />
+      {open !== null && photos[open] && !show ? (
+        <Viewer
+          photos={photos}
+          index={open}
+          onIndex={setOpen}
+          onClose={close}
+          onSlideshow={() => {
+            setShow({ startId: photos[open].id, fromViewer: true });
+            setOpen(null);
+          }}
+        />
+      ) : null}
+
+      {show && photos.length ? (
+        <Slideshow
+          photos={photos}
+          startId={show.startId}
+          onClose={(lastId) => {
+            // Back to the viewer it came from, on the photo it ended on.
+            const at = photos.findIndex((photo) => photo.id === lastId);
+            if (show.fromViewer && at >= 0) setOpen(at);
+            setShow(null);
+          }}
+        />
       ) : null}
     </div>
   );

@@ -16,7 +16,7 @@ A mobile-first community directory for residents, sociocratic circles, shared sk
 - 📅 **Calendar** – The next community event on the dashboard, and the full Google Calendar on its own page.
 - 📱 **Installable app & notifications** – Add CVC to your home screen, and get push notifications when neighbors post.
 - 💡 **Resources** – Local services neighbors recommend, by category, with who recommended each, likes, and comments.
-- 📷 **Photos** – A shared gallery of community photos with captions and a full-screen viewer.
+- 📷 **Photos** – A shared gallery of community photos with captions, a full-screen viewer, and a slideshow.
 - 📄 **Documents** – One place for every circle's documents: **pages written here** (a visual editor, editing together, embeds, history, sticky-note comments on passages, and **Save as PDF**) and **files uploaded** (minutes, agendas, plans, scans, with versions). One list and one search cover both, contents included, and the forum too; one **New** button writes a page, uploads a file, or adds a link (Google Docs, Sheets and Slides recognised); a file or Google Doc can be turned into a page. **Proposals** are their own records — put to a circle, about pages and files (each kept as a **snapshot** of how it was when attached), held in documents — and a circle consents to one **at a meeting**: the meeting's notes record who was there, and its **Consent** button records the circle, the meeting, who was there, and who recorded it. Pages and files show where their proposals stand: **Draft**, **Proposed**, **Consented**.
 - 🐞 **Bugs & ideas** – A ladybug in the corner of every page sends the admins a bug report or a feature request, with the page it came from.
 - 🗄️ **Backups** – Every Monday, everything residents can see in the app (and the site's code) in one zip, readable by people and by agents, fingerprinted and timestamped in Bitcoin; residents sign up on an unlisted page for an email, a feed, or a copy in their own storage.
@@ -1371,6 +1371,18 @@ circles keep using Google Groups or whatever email they like for mail.
   which also strips embedded metadata such as GPS location, then verified server-side by their
   bytes (up to 4 MB). Any resident can remove a photo; whoever added it — or an admin — can edit
   its caption.
+- **Slideshow** (`components/photos/slideshow.tsx`) – the **Slideshow** button over the gallery
+  (from the newest photo) or in the viewer (from the photo open there, and back to the viewer on
+  the photo it ends on) shows the photos full screen where the browser allows it: each fades into
+  the next and drifts slowly closer, its caption and who added it beneath, moving on by itself
+  every 3, 5, 8 or 12 seconds (a bar along the bottom counts down) once it has loaded, the next
+  loaded ahead; in order or **Shuffle**d. The speed and shuffle are remembered in the browser
+  (`cvc-slideshow`). Space pauses, the arrows or a swipe step, F switches full screen, Escape
+  leaves; the controls and the pointer tuck away after three still seconds while it plays. It keeps
+  the screen awake, waits while the tab is hidden, and photos added while it runs come up next
+  (the gallery is fetched every minute meanwhile) — so `/photos?slideshow`, which starts it
+  straight away, can run on a screen at a gathering. For those who ask for less motion: no drift,
+  a quicker fade.
 - Images are stored in R2 (`photos/files/<id>`, details in `photos/index.json`) and served only to
   signed-in residents; photos are never committed to the (public) repository.
 - `POST /api/admin/photos?caption=…` seeds the gallery with the image as the raw body, using

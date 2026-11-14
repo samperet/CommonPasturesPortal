@@ -483,6 +483,24 @@ mark.wiki-mark {
 }
 
 /* Save as PDF (printing a page): just the document, on plain paper, its pictures and tables kept whole. */
+/* The photos' slideshow (`components/photos/slideshow.tsx`): each photo drifts slowly closer while it's shown, and a bar counts down to the next. */
+@keyframes cvc-slide-drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
+}
+@keyframes cvc-slide-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /*
  * The documents sidebar and a page's own column folding away and back together
  * (`docs-shell.tsx`, `wiki-page.tsx`): their columns' widths, the gaps beside them and
