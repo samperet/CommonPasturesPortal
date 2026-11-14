@@ -42,6 +42,7 @@ import { shortDate } from "@/lib/time";
 import { ConsentRecord, consentSummary } from "@/components/circles/consent-record";
 import { RowChoice, useChoosing } from "@/components/documents/export";
 import { StarButton, useOpenNoter } from "@/components/documents/my-documents";
+import { ShareButton } from "@/components/documents/share-button";
 import { ConsentDialog } from "@/components/proposals/consent-dialog";
 import { ProposalFormDialog } from "@/components/proposals/proposal-form";
 import {
@@ -59,7 +60,8 @@ import {
  * the reader may change. A link opens where it lives; a Google one can be
  * previewed in place, and its link changed (a new version); an Excel or CSV
  * file opens in CVC's spreadsheet editor (`/documents/<id>/sheet`). Its
- * **Star** keeps it in your starred list; opening it notes it as recent. On
+ * **Star** keeps it in your starred list, and **Share** copies its link
+ * (`/documents/<id>`, which opens it); opening it notes it as recent. On
  * the Documents page no icon leads the row (in a circle's module, its file
  * icon does), and no preview of its words — only, in a search, the passage
  * that matched.
@@ -393,6 +395,7 @@ export function DocumentRow({
       )}
     >
       <StarButton doc={{ kind: "file", id: doc.id }} title={doc.title} compact className={action} />
+      <ShareButton path={`/documents/${doc.id}`} title={doc.title} compact className={action} />
       {sheetHref ? (
         <Link
           href={sheetHref}

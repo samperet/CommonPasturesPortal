@@ -17,7 +17,7 @@ A mobile-first community directory for residents, sociocratic circles, shared sk
 - 📱 **Installable app & notifications** – Add CVC to your home screen, and get push notifications when neighbors post.
 - 💡 **Resources** – Local services neighbors recommend, by category, with who recommended each, likes, and comments.
 - 📷 **Photos** – A shared gallery of community photos with captions, a full-screen viewer, and a slideshow.
-- 📄 **Documents** – One place for every circle's documents: **pages written here** (a visual editor, editing together, embeds, history, sticky-note comments on passages, and **Save as PDF**) and **files uploaded** (minutes, agendas, plans, scans, with versions). One list and one search cover both, contents included, and the forum too; one **New** button writes a page, uploads a file, or adds a link (Google Docs, Sheets and Slides recognised); a file or Google Doc can be turned into a page. **Proposals** are their own records — put to a circle, about pages and files (each kept as a **snapshot** of how it was when attached), held in documents — and a circle consents to one **at a meeting**: the meeting's notes record who was there, and its **Consent** button records the circle, the meeting, who was there, and who recorded it. Pages and files show where their proposals stand: **Draft**, **Proposed**, **Consented**.
+- 📄 **Documents** – One place for every circle's documents: **pages written here** (a visual editor, editing together, embeds, history, sticky-note comments on passages, **Save as PDF**, and a **Share** button that copies a link) and **files uploaded** (minutes, agendas, plans, scans, with versions). One list and one search cover both, contents included, and the forum too; one **New** button writes a page, uploads a file, or adds a link (Google Docs, Sheets and Slides recognised); a file or Google Doc can be turned into a page. **Proposals** are their own records — put to a circle, about pages and files (each kept as a **snapshot** of how it was when attached), held in documents — and a circle consents to one **at a meeting**: the meeting's notes record who was there, and its **Consent** button records the circle, the meeting, who was there, and who recorded it. Pages and files show where their proposals stand: **Draft**, **Proposed**, **Consented**.
 - 🐞 **Bugs & ideas** – A ladybug in the corner of every page sends the admins a bug report or a feature request, with the page it came from.
 - 🗄️ **Backups** – Every Monday, everything residents can see in the app (and the site's code) in one zip, readable by people and by agents, fingerprinted and timestamped in Bitcoin; residents sign up on an unlisted page for an email, a feed, or a copy in their own storage.
 - 🌀 **Circles** – Each circle has its own page, with its members in a side panel; residents join with a button or apply, as the circle chooses. Its members and the Board manage members, details, and an icon; icons show as badges in the directory.
@@ -925,6 +925,14 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   or to a new page named after what you type, started when the page is saved and kept by its
   circle; written `[[Title|words]]`), and clear formatting. Shift + right-click opens the browser's
   own menu, for spelling suggestions.
+- **Share** – every document has a **Share** button that copies its link to the clipboard (the
+  whole address, on whichever of CVC's addresses it's opened) and says so: on a page beside its
+  **Star** (not on a draft, which only its author sees), on a proposal's page, and in the
+  Documents list on each page, file and proposal (on hover, or always on a touch screen). A page's
+  link is its page, a proposal's its page, and a file's `/documents/<id>`, which opens the file
+  (a link document goes where it points). Whoever opens one signs in first if they aren't, and comes
+  back to it. Where the browser won't let a page write the clipboard, it's copied the old way, or
+  the toast shows the link to copy by hand (`components/documents/share-button.tsx`).
 - **Save as PDF** – a page's **Save as PDF** button opens the browser's print window, where "Save
   as PDF" is a destination (on a phone, its print or share sheet). The print layout (`globals.css`,
   `print:hidden` on the controls) is just the page — its circle, title, date and words — without

@@ -7,11 +7,14 @@ import { Highlighted } from "@/components/documents/document-row";
 import { RowChoice, useChoosing } from "@/components/documents/export";
 import { cn } from "@/lib/utils";
 import { ProposalStatusPill, dayOf } from "./proposal-bits";
+import { ON_HOVER } from "@/components/ui/hover";
+import { ShareButton } from "@/components/documents/share-button";
 
 /**
  * Proposals in lists: a row in the Documents list (beside pages and files —
  * where it stands, its circle, who proposed it, and in a search the passage
- * that matched; no icon or preview there, a handshake in a circle's module),
+ * that matched; no icon or preview there, a handshake in a circle's module;
+ * **Share**, on hover, copies its link),
  * and cards for a circle's page (a Filtered Documents module's "proposals
  * waiting for consent").
  */
@@ -33,7 +36,7 @@ export function ProposalListingRow({
   const indented = compact || choosing;
   return (
     <li
-      className={compact ? "flex flex-col py-2" : "flex flex-col gap-1 py-4"}
+      className={cn("group/post flex flex-col", compact ? "py-2" : "gap-1 py-4")}
       data-listing="proposal"
     >
       <div className="flex items-start gap-3">
@@ -52,6 +55,12 @@ export function ProposalListingRow({
         >
           <Highlighted text={proposal.title} terms={terms} />
         </Link>
+        <ShareButton
+          path={`/proposals/${proposal.id}`}
+          title={proposal.title}
+          compact
+          className={cn("-my-1 ml-auto shrink-0", ON_HOVER)}
+        />
       </div>
       {compact ? null : (
         <>

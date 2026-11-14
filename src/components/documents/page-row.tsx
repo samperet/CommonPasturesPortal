@@ -9,6 +9,8 @@ import { ConsentRecord, consentSummary } from "@/components/circles/consent-reco
 import { RowChoice, useChoosing } from "@/components/documents/export";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/ui/pill";
+import { ON_HOVER } from "@/components/ui/hover";
+import { ShareButton } from "@/components/documents/share-button";
 
 /**
  * A written page in the Documents list, beside uploaded files: its title, a
@@ -16,7 +18,8 @@ import { Pill } from "@/components/ui/pill";
  * drafts aren't labelled — but a page not yet published is, as a Draft),
  * circle, and when it was last edited — no icon and no preview of its
  * words, but in a search the passage that matched. Its title opens the
- * page. In a circle's Documents module (`compact`), just a book and the
+ * page; beside it (on hover, or always on a touch screen) **Share** copies its
+ * link. In a circle's Documents module (`compact`), just a book and the
  * title. While documents are being chosen for an export, a box to tick
  * comes first.
  */
@@ -36,7 +39,10 @@ export function PageListingRow({
   const choosing = useChoosing();
   const indented = compact || choosing;
   return (
-    <li className={compact ? "flex flex-col py-2" : "flex flex-col gap-1 py-4"} data-listing="page">
+    <li
+      className={cn("group/post flex flex-col", compact ? "py-2" : "gap-1 py-4")}
+      data-listing="page"
+    >
       <div className="flex items-start gap-3">
         <RowChoice
           item={{ kind: "page", id: page.id }}
@@ -53,6 +59,14 @@ export function PageListingRow({
         >
           <Highlighted text={page.title} terms={terms} />
         </Link>
+        {page.draft ? null : (
+          <ShareButton
+            path={`/wiki/${page.slug}`}
+            title={page.title}
+            compact
+            className={cn("-my-1 ml-auto shrink-0", ON_HOVER)}
+          />
+        )}
       </div>
       {compact ? null : (
         <>

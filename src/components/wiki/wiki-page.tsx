@@ -59,6 +59,7 @@ import { Loading, NotFoundCard } from "@/components/ui/status";
 import { useConfirm } from "@/components/ui/confirm";
 import { Select } from "@/components/ui/select";
 import { StarButton, useNoteOpened } from "@/components/documents/my-documents";
+import { ShareButton } from "@/components/documents/share-button";
 import { FollowButton } from "@/components/wiki/follow-button";
 import { useDocsShell } from "@/components/documents/docs-context";
 import { MoveDialog, type PageMove } from "@/components/documents/move-dialog";
@@ -644,6 +645,7 @@ export function WikiPageClient({ slug }: { slug: string }) {
         {back}
         <div className="flex flex-wrap items-center gap-2">
           <StarButton doc={{ kind: "page", id: page.id }} title={page.title} />
+          {page.draft ? null : <ShareButton path={`/wiki/${page.slug}`} title={page.title} />}
           <FollowButton slug={slug} following={!!data?.following} />
           <Button
             size="sm"

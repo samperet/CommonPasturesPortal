@@ -15,6 +15,7 @@ import { proposalQuery } from "./data";
 import { ProposalConsentRecord, ProposalStatusPill, dayOf } from "./proposal-bits";
 import { ProposalActions, ProposalDocuments } from "./proposal-card";
 import { StarButton, useNoteOpened } from "@/components/documents/my-documents";
+import { ShareButton } from "@/components/documents/share-button";
 
 /**
  * A proposal's own page (`/proposals/<id>`): its circle, title, where it
@@ -43,7 +44,10 @@ export function ProposalPage({ id }: { id: string }) {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink href={`/circles/${proposal.circleId}`} label={proposal.circleName} />
-        <StarButton doc={{ kind: "proposal", id: proposal.id }} title={proposal.title} />
+        <div className="flex items-center gap-2">
+          <StarButton doc={{ kind: "proposal", id: proposal.id }} title={proposal.title} />
+          <ShareButton path={`/proposals/${proposal.id}`} title={proposal.title} />
+        </div>
       </div>
       <article className="document-sheet flex flex-col" data-proposal-page>
         <header className="flex flex-col items-center gap-3 border-b border-border/70 px-6 pb-7 pt-9 text-center sm:px-14">
