@@ -1,4 +1,4 @@
-import { isCommunity, isSafetyCrew } from "./ids";
+import { isCommunity, isOperations, isSafetyCrew } from "./ids";
 import type { TaskView } from "@/lib/tasks/shared";
 import type { TaskRole } from "@/lib/tasks/roles";
 
@@ -22,6 +22,7 @@ export const MODULE_TYPES = [
   "subgroups",
   "alert",
   "taskbutton",
+  "equipment",
 ] as const;
 export type ModuleType = (typeof MODULE_TYPES)[number];
 
@@ -126,6 +127,7 @@ export const MODULE_NAMES: Record<ModuleType, string> = {
   subgroups: "Sub groups",
   alert: "Alert",
   taskbutton: "Task button",
+  equipment: "Equipment",
 };
 
 /**
@@ -250,7 +252,9 @@ export const moduleTitle = (module: Pick<CircleModule, "type" | "title">, schedu
  * sections as they were (in their order and sizes): Filtered Documents as
  * all of the circle's own pages, shown as it chose; Members (but not on
  * Community, which is everyone); the duty schedule if it has one; Tasks
- * and Documents unless it turned them off.
+ * and Documents unless it turned them off. Community's always lists the
+ * circles within it, O&M's always has its Equipment, and the Safety Crew's
+ * always ends with its Alert.
  */
 export function modulesFor(
   circle: {
@@ -272,6 +276,16 @@ export function modulesFor(
     return [
       ...modules,
       { id: "circles-within", type: "subgroups", size: "full", title: "Circles within Community" },
+    ];
+  // O&M's page always has its Equipment, whether or not it was ever saved there.
+  if (isOperations(circle) && !modules.some((module) => module.type === "equipment"))
+    return [
+      ...modules,
+      {
+        id: modules.some((module) => module.id === "equipment") ? "equipment-om" : "equipment",
+        type: "equipment",
+        size: "full",
+      },
     ];
   // The Safety Crew's page always ends with its Alert, whether or not it was ever saved there.
   if (isSafetyCrew(circle) && !modules.some((module) => module.type === "alert"))

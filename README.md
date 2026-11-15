@@ -1358,6 +1358,32 @@ from then on, so re-importing the directory never overwrites circle changes.
 - **Sent to you lately** – each resident's **Notifications** lists what was sent to them in
   the last 30 days and how it reached them, or why it didn't (`GET /api/me/notifications`).
 
+## Equipment
+
+A circle's **Equipment** module (`src/lib/equipment/`, `src/components/equipment/`) lists what it
+looks after, each as a card — its name, what it is, whether it's **In service**, **Needs repair**,
+**Out of service** or **Retired**, and its latest log entry. Tapping one opens its page
+(`/circles/<id>/equipment/<itemId>`): what it is, make and model, serial number, where it's kept,
+how it came to CVC, its owner, who looks after it, and notes — and its **log book**: this year's
+totals (entries, uses, hours, spending), **Add to the log** (the day, what kind — used,
+maintenance, repair, inspection, a note — what was done, and the hours and cost if known), and the
+entries newest first.
+
+- Every resident sees the equipment and adds to its log; whoever wrote an entry changes or removes
+  it. The circle's members, the Board and admins add, change and remove equipment, and can change
+  or remove any entry (`lib/equipment/http.ts`). A day still to come can't be logged.
+- Stored per circle, `equipment/<circleId>.json` (`lib/equipment/store.ts`, all writes through
+  `mutateJson`); in backups as the **equipment** dataset, part of **Circle work**.
+- **O&M** (a circle named "O&M", or "Operations and Maintenance": `isOperations` in
+  `lib/circles/ids.ts`) always has the module on its page, saved there or not (`modulesFor`, as
+  the Safety Crew's Alert), and its list starts with the **DR mower** (`lib/equipment/seed.ts`):
+  written the first time the list is read, write-if-absent, so it's there once and stays removed
+  if removed. It holds what the community's mailing list said of it between February and August
+  2025 — what it mows, the $5-an-hour arrangement with the HOA since 2013, the July 2025 repair
+  ($667.49, paid back by donations), and that the garden group keeps it for now — with no
+  residents named (the repository is public): the circle adds names, the model, serial number and
+  where it's kept on its page.
+
 ## Circle forums
 
 A circle's **Forum** module (`src/lib/groups/`, `src/components/groups/`) holds its conversations;

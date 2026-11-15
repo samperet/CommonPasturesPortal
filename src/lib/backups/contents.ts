@@ -108,6 +108,7 @@ const DATASETS: [RegExp, string, string][] = [
   [/^proposals\//, "proposals", "Proposals and their consent (JSON)"],
   [/^tasks\/|^task-comments\//, "tasks", "Circle tasks and their comments (JSON)"],
   [/^logs\//, "logs", "Circle logs (JSON)"],
+  [/^equipment\//, "equipment", "Circles' equipment, each with its log book (JSON)"],
   [/^groups\//, "circle-forums", "Circle forums: conversations and polls (JSON)"],
   [/^forum\//, "forum", "Community forum discussions (JSON)"],
   [/^alerts\//, "alerts", "Alerts sent from circles (JSON)"],
@@ -138,7 +139,10 @@ export const EXPORT_PARTS = {
     label: "Conversations",
     about: "The forum, circle forums, alerts, appreciations and recommendations",
   },
-  work: { label: "Circle work", about: "Tasks, logs, duty schedules and circles' finances" },
+  work: {
+    label: "Circle work",
+    about: "Tasks, logs, equipment and its log books, duty schedules and circles' finances",
+  },
   other: {
     label: "Everything else",
     about: "The loan library, homes for sale, accounts and settings",
@@ -178,6 +182,7 @@ const PART_OF: Record<string, ExportPart> = {
   resources: "conversations",
   tasks: "work",
   logs: "work",
+  equipment: "work",
   finances: "work",
   eggs: "work",
   schedules: "work",

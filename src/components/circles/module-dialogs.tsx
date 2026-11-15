@@ -23,6 +23,7 @@ import {
   Type,
   Users,
   Wallet,
+  Wrench,
   X,
 } from "lucide-react";
 import {
@@ -91,6 +92,7 @@ export const MODULE_ICONS: Record<ModuleType, typeof BookOpen> = {
   subgroups: Network,
   alert: Siren,
   taskbutton: ListPlus,
+  equipment: Wrench,
 };
 
 const MODULE_HINTS: Record<ModuleType, string> = {
@@ -112,6 +114,8 @@ const MODULE_HINTS: Record<ModuleType, string> = {
     "A button any resident can press to alert the circle's members — or everyone at CVC — by notification and email. The Safety Crew's; always on its page.",
   taskbutton:
     "A button any resident can press to make a task for a role or a group — for requests like “Report a broken light”. Add as many as you like.",
+  equipment:
+    "The circle's equipment — tap one for its details and its log book, where anyone notes using, servicing or repairing it.",
 };
 
 // The visual editor is large, and needs the browser; load it only when someone edits.
@@ -363,6 +367,7 @@ export function AddModuleDialog({
       "documents",
       "subgroups",
       "taskbutton",
+      "equipment",
     ] as const
   ).filter((type) => {
     if (REPEATABLE_MODULES.includes(type)) return true;

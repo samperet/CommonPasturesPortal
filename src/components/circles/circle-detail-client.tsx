@@ -41,6 +41,7 @@ import { InformationModule } from "@/components/circles/information-module";
 import { ForumModule } from "@/components/groups/forum-module";
 import { AlertModule } from "@/components/alerts/alert-module";
 import { LogModule } from "@/components/circles/log-module";
+import { EquipmentModule } from "@/components/equipment/equipment-module";
 import { TextModule } from "@/components/circles/text-module";
 import { TasksModule } from "@/components/tasks/task-board";
 import { TaskButtonModule } from "@/components/tasks/task-button";
@@ -235,6 +236,19 @@ export function CircleDetailClient({ id }: { id: string }) {
                 {title}
               </SectionHeading>
               <LogModule circleId={circle.id} />
+            </Card>
+          ),
+        };
+      case "equipment":
+        return {
+          title,
+          icon: icon(module),
+          content: (
+            <Card className="flex flex-col gap-4">
+              <SectionHeading icon={MODULE_ICONS.equipment} toggle={<ModuleToggle />}>
+                {title}
+              </SectionHeading>
+              <EquipmentModule circleId={circle.id} />
             </Card>
           ),
         };

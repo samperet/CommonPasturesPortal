@@ -29,3 +29,11 @@ export const sitsOnBoard = (
  */
 export const isSafetyCrew = (circle: { name?: string } | undefined) =>
   /safety/i.test(circle?.name ?? "");
+
+/**
+ * The O&M (operations and maintenance) circle: named "O&M", or "Operations
+ * and Maintenance". Its page always has the Equipment module (`modulesFor`),
+ * and its equipment list starts with the DR mower (`lib/equipment/seed.ts`).
+ */
+export const isOperations = (circle: { name?: string } | undefined) =>
+  /(^|[^a-z])o\s*&\s*m([^a-z]|$)|operations\s*(and|&)\s*maintenance/i.test(circle?.name ?? "");
