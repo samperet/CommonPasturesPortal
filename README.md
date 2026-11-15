@@ -923,8 +923,17 @@ Object Read & Write scoped to that bucket, and set the four `R2_*` variables in 
   strikethrough, code, highlight (or, inside a highlight, change its colour or remove it), link,
   **Link to a page…** (the selected words become a link to a page you pick — this circle's first —
   or to a new page named after what you type, started when the page is saved and kept by its
-  circle; written `[[Title|words]]`), and clear formatting. Shift + right-click opens the browser's
-  own menu, for spelling suggestions.
+  circle; written `[[Title|words]]`), **Move to a new page…**, and clear formatting. Shift +
+  right-click opens the browser's own menu, for spelling suggestions.
+- **Move to a new page** – right-clicking selected text in a page offers **Move to a new page…**
+  (`components/wiki/move-to-page-dialog.tsx`): name the page — its first heading if the text
+  starts with one (then left out of the page's text, since the title says it), else its first
+  words — and choose what stays in its place: **A link to it** or **The page, shown here** (an
+  embed; either can be switched later). The page is made inside this one, kept by the same circle,
+  holding the text as it was — formatting, links, photos — and only once it's made does the text
+  give way (`POST /api/wiki/pages` with `parentId`; anyone who can edit a page may start one inside
+  it). A title already taken is said so in the dialog, and nothing moves; if the text changed
+  meanwhile (someone else's edit came in), it's left as it is.
 - **Share** – every document has a **Share** button that copies its link to the clipboard (the
   whole address, on whichever of CVC's addresses it's opened) and says so: on a page beside its
   **Star** (not on a draft, which only its author sees), on a proposal's page, and in the

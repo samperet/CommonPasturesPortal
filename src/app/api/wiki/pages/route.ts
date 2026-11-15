@@ -34,7 +34,8 @@ export async function GET() {
  * `template` (a built-in one's key, or a template page's id) and no body of
  * its own, it starts with the template's text, today's date and its circle
  * filled in (`lib/wiki/templates.ts`). Inside a page (`parentId`, one its
- * keeper keeps) it goes last among that page's pages. As a `draft` only its
+ * keeper keeps — or any page you can edit, as when you move some of its
+ * text to a page of its own) it goes last among that page's pages. As a `draft` only its
  * author and admins see it until it's published (`…/publish`). Its creator
  * follows it from the start, and anyone it mentions is told once it's
  * published.
@@ -57,8 +58,11 @@ export async function POST(request: NextRequest) {
     (source && canEditPage(ctx.user, ctx.directory, source) ? source.keeper : COMMUNITY_ID);
   if (!ctx.directory.circles.some((circle) => circle.id === keeper))
     return problem("Choose the circle that keeps it", 404);
-  // Your own circles' — or, started from a page you can edit, that page's circle.
-  if (!canUploadTo(ctx.user, ctx.directory, keeper) && !(source && source.keeper === keeper)) {
+  // Your own circles' — or, started from a page you can edit (or inside one), that page's circle.
+  const fromEditable =
+    (source && source.keeper === keeper) ||
+    (parent && canEditPage(ctx.user, ctx.directory, parent));
+  if (!canUploadTo(ctx.user, ctx.directory, keeper) && !fromEditable) {
     return problem("You can only start pages kept by your own circles", 403);
   }
   let body = input.body;

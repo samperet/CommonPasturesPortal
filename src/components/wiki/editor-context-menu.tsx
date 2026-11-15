@@ -10,6 +10,7 @@ import {
   Code,
   Copy,
   Eraser,
+  FilePlus2,
   Italic,
   Link2,
   RemoveFormatting,
@@ -30,7 +31,8 @@ import { cn } from "@/lib/utils";
  * The wiki editor's right-click menu: cut, copy and paste; bold, italic,
  * strikethrough and code; highlight the selected words (or, inside a
  * highlight, change its colour or take it off); add a web link, or link the
- * selected words to a page (`link-words-dialog.tsx`); clear formatting.
+ * selected words to a page (`link-words-dialog.tsx`); move the selected text
+ * to a page of its own, linked from here (`move-to-page-dialog.tsx`); clear formatting.
  * Shift + right-click opens the browser's own menu instead (for spelling).
  * Choosing an item never moves the cursor out of the text, so the selection
  * it acts on stays put.
@@ -50,11 +52,14 @@ export function EditorContextMenu({
   editor,
   onLink,
   onLinkPage,
+  onMoveToPage,
 }: {
   editor: Editor;
   onLink: () => void;
   /** Link the selected words to a page (new or existing); only where pages can be linked. */
   onLinkPage?: () => void;
+  /** Move the selected text to a new page inside this one, linked from here; only in a page. */
+  onMoveToPage?: () => void;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState<Open | null>(null);
@@ -271,6 +276,9 @@ export function EditorContextMenu({
       {item("Link…", Link2, run(onLink), { shortcut: `${mod}K` })}
       {onLinkPage
         ? item("Link to a page…", BookOpen, run(onLinkPage), { disabled: !selected })
+        : null}
+      {onMoveToPage
+        ? item("Move to a new page…", FilePlus2, run(onMoveToPage), { disabled: !selected })
         : null}
       {item(
         "Clear formatting",

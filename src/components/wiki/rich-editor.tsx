@@ -39,6 +39,7 @@ import { SlashMenu, slashItems, type SlashItem } from "@/components/wiki/slash-m
 import { captureCursor, restoreCursor } from "@/components/wiki/editor-cursor";
 import { EditorContextMenu } from "@/components/wiki/editor-context-menu";
 import { LinkWordsDialog } from "@/components/wiki/link-words-dialog";
+import { MoveToPageDialog } from "@/components/wiki/move-to-page-dialog";
 import { FindBar } from "@/components/wiki/find-bar";
 import {
   HighlightMenu,
@@ -199,6 +200,7 @@ export const RichEditor = forwardRef<
   const host = useRef<HTMLDivElement>(null);
   const [linking, setLinking] = useState(false);
   const [linkingWords, setLinkingWords] = useState(false);
+  const [movingText, setMovingText] = useState(false);
   const [imaging, setImaging] = useState(false);
   const [polling, setPolling] = useState(false);
   const [proposing, setProposing] = useState(false);
@@ -380,6 +382,7 @@ export const RichEditor = forwardRef<
             editor={editor}
             onLink={() => setLinking(true)}
             onLinkPage={() => setLinkingWords(true)}
+            onMoveToPage={() => setMovingText(true)}
           />
         ) : null}
       </div>
@@ -392,6 +395,14 @@ export const RichEditor = forwardRef<
           canCreate
           onCreatePage={onCreatePage}
           onClose={() => setLinkingWords(false)}
+        />
+      ) : null}
+      {editor && movingText ? (
+        <MoveToPageDialog
+          editor={editor}
+          page={{ id: pageId, title: pageTitle }}
+          circleName={circleName}
+          onClose={() => setMovingText(false)}
         />
       ) : null}
       {editor && imaging ? (
