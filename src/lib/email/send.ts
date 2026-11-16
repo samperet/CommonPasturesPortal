@@ -138,6 +138,8 @@ export async function sendDirectEmail(
   personId?: string | null
 ): Promise<{
   sent: boolean;
+  /** The sender that took it ("Brevo", "Resend"), when one did. */
+  sentBy?: string;
   errors: Sending["errors"];
   /** Why nothing went, when no sender refused: no keys set, no room today, or a fault here. */
   problem?: "not configured" | "over quota" | "error";
@@ -175,8 +177,14 @@ export async function sendDirectEmail(
           [result.sent ? "sent" : result.overQuota.length ? "over-quota" : "failed"]: [personId],
         },
       });
+    const took = (Object.keys(result.by) as (keyof typeof PROVIDER_NAMES)[]).filter(
+      (provider) => (result.by[provider] ?? 0) > 0
+    );
     return {
       sent: result.sent > 0,
+      ...(took.length
+        ? { sentBy: took.map((provider) => PROVIDER_NAMES[provider]).join(", ") }
+        : {}),
       errors: result.errors,
       ...(result.overQuota.length ? { problem: "over quota" as const } : {}),
     };

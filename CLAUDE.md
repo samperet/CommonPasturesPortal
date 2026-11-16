@@ -38,6 +38,7 @@ admin with `ADMIN_PERSON_IDS=<your person id>`. `.env.example` lists every varia
 | `src/lib/storage.ts` | R2 (or `.data/`): `readJson`, `writeJson`, `mutateJson`, binaries |
 | `src/lib/http.ts` | `problem`, `readBody`, `throttled`, `notFound`/`forbidden`/`full` — every route uses these |
 | `src/lib/auth/actor.ts` | `Actor` (`userId`, `personId`, `name`, `admin`) and `actorOf(user)`: who is acting, as stores see them |
+| `src/lib/auth/sign-in-links.ts`, `sign-in-attempts.ts` | Sign-in by email: links and codes (hashed, once, a day; `unlimited` for those admins make, `api/admin/sign-ins/link`), and the log of tries at signing in that the admins' sign-in log shows (`attempts-shared.ts`: what each means, who's still trying) |
 | `src/lib/comments/` | The one comment system: `CommentRecord` (`shared.ts`) and the add/edit/delete rules (`store.ts`) every feature's comments follow |
 | `src/components/comments/` | `CommentTree`, `CommentForm`, `CommentByline` — how comments are shown everywhere |
 | `src/components/ui/` | The primitives: `Pill`, `SectionHeading`, `SegmentedControl`, `Loading`/`ErrorCard`/`NotFoundCard`, `Select`, `ActionLink`, `Dialog`, and `useConfirm()` |

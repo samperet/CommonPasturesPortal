@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSignInLink } from "@/lib/auth/sign-in-links";
 import { findSignInPerson, maskEmail, sendSignInEmail, signInEmailOf } from "@/lib/auth/sign-in";
+import { recordAttempt } from "@/lib/auth/sign-in-attempts";
 import { linkRequestSchema } from "@/lib/auth/validation";
 import { problem, readBody, throttled } from "@/lib/http";
 import { requestSite } from "@/lib/site-url";
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
 /**
  * Ask for a sign-in link: chosen by name, it goes to that resident's address
  * in the directory (never one typed here), with a code to type instead.
- * Answers with the address half-hidden, so they know where to look.
+ * Answers with the address half-hidden, so they know where to look. Each
+ * ask, and how it went, is kept in the admins' log of tries at signing in.
  */
 export async function POST(request: NextRequest) {
   const limited = throttled(request, "sign-in-link", "Too many requests. Please wait a minute.");
@@ -19,18 +21,22 @@ export async function POST(request: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const person = await findSignInPerson(parsed.data.personId);
   const email = person && signInEmailOf(person);
+  if (person && !email) await recordAttempt(person, { kind: "email", outcome: "no-email" });
   if (!person || !email)
     return problem(
       "We don't have an email address for you — ask the Board Secretary to add one",
       404
     );
+  const to = maskEmail(email);
   const link = await createSignInLink(person.id, parsed.data.next);
-  if (link === "too-many")
+  if (link === "too-many") {
+    await recordAttempt(person, { kind: "email", outcome: "too-many", to });
     return problem(
       "You've asked for several links in the last hour — use the newest one, or try again later",
       429,
       "Too Many Requests"
     );
+  }
   // Asked for on the wiki's own address, the link leads back there.
   const sending = await sendSignInEmail(person, email, link.token, link.code, requestSite(request));
   if (!sending.sent) {
@@ -39,6 +45,12 @@ export async function POST(request: NextRequest) {
       .map(([provider, error]) => `${provider} ${error?.split(" ")[0]}`)
       .join(", ");
     const why = codes || sending.problem;
+    await recordAttempt(person, {
+      kind: "email",
+      outcome: "not-sent",
+      to,
+      ...(why ? { detail: why } : {}),
+    });
     return problem(
       `We couldn't send the email just now. Please try again in a few minutes.${
         why ? ` (${why})` : ""
@@ -46,5 +58,11 @@ export async function POST(request: NextRequest) {
       503
     );
   }
-  return NextResponse.json({ sentTo: maskEmail(email) });
+  await recordAttempt(person, {
+    kind: "email",
+    outcome: "sent",
+    to,
+    ...(sending.sentBy ? { detail: sending.sentBy } : {}),
+  });
+  return NextResponse.json({ sentTo: to });
 }

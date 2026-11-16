@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
-import { mutateJson } from "@/lib/storage";
+import { mutateJson, readJson } from "@/lib/storage";
 import { authSecret } from "./secret";
 
 /**
@@ -11,7 +11,9 @@ import { authSecret } from "./secret";
  * keyed hashes of the token and code are stored. A resident can ask for a
  * few links an hour, and five wrong codes spoil their open links, so a code
  * can't be guessed. Signing in clears that person's other links — they're
- * spent, and so is the count.
+ * spent, and so is the count. An admin can also make a link for someone
+ * (to send them another way, when their email isn't arriving): the same
+ * kind of link, outside the hourly count.
  */
 
 // "-2": the count started over on 2026-10-05 (the first file is left as it was).
@@ -83,20 +85,25 @@ export function safeNext(next: string | undefined | null): string | undefined {
     : undefined;
 }
 
-/** A new link and code for someone, or "too-many" when they've asked too often this hour. */
+/**
+ * A new link and code for someone, or "too-many" when they've asked too
+ * often this hour (`unlimited`: an admin's, which doesn't count).
+ */
 export function createSignInLink(
   personId: string,
   next?: string,
-  now = Date.now()
-): Promise<{ token: string; code: string } | "too-many"> {
+  now = Date.now(),
+  options: { unlimited?: boolean } = {}
+): Promise<{ token: string; code: string; expiresAt: string } | "too-many"> {
   const token = randomBytes(24).toString("base64url");
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  return mutateJson<{ token: string; code: string } | "too-many">(KEY, (raw) => {
+  return mutateJson<{ token: string; code: string; expiresAt: string } | "too-many">(KEY, (raw) => {
     const links = prune(normalize(raw), now);
     const recent = Object.values(links).filter(
       (link) => link.personId === personId && now - new Date(link.createdAt).getTime() < 3600_000
     ).length;
-    if (recent >= MAX_LINKS_PER_HOUR) return { write: false, result: "too-many" as const };
+    if (recent >= MAX_LINKS_PER_HOUR && !options.unlimited)
+      return { write: false, result: "too-many" as const };
     const link: SignInLink = {
       personId,
       codeHash: codeHash(personId, code),
@@ -105,11 +112,19 @@ export function createSignInLink(
       attempts: 0,
       ...(safeNext(next) ? { next: safeNext(next) } : {}),
     };
-    return { value: { links: { ...links, [tokenHash(token)]: link } }, result: { token, code } };
+    return {
+      value: { links: { ...links, [tokenHash(token)]: link } },
+      result: { token, code, expiresAt: link.expiresAt },
+    };
   });
 }
 
 type Used = { personId: string; next?: string };
+
+/** Whose a link is (while it's still kept: a day), for the log of tries that failed. */
+export async function linkOwner(token: string): Promise<string | null> {
+  return normalize(await readJson(KEY))[tokenHash(token)]?.personId ?? null;
+}
 
 /** The links once `key` is used: it marked used, and the same person's others gone. */
 function spend(links: Links, key: string, now: number): Links {

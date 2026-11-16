@@ -250,6 +250,22 @@ session is, so admin status is checked server-side on every request; the user me
   rare and last seen is the better sign of who uses the app. It records only who and when — no
   phone numbers or devices — keeps the latest 2,000 sign-ins in `auth/sign-in-log.json`, and is
   served only to admins.
+  **Attempts** lists every try at signing in, by day, each with whether they signed in after
+  ("Signed in 3 minutes later", or "Not signed in since"): each ask for a sign-in email and how it
+  went — sent, to the address half hidden, and through which sender; not sent, with each sender's
+  refusal by status; no address in the directory; or too many asked for in an hour — each code
+  that didn't match or came after the links had expired, each link opened after its day or a
+  second time, and each link an admin made (`lib/auth/attempts-shared.ts`, kept by
+  `sign-in-attempts.ts` in `auth/sign-in-attempts.json`, the latest 2,000; no full addresses, codes
+  or links). Above the views, **Trying to sign in** lists whoever has tried in the last fortnight
+  and not got in since (a used link opened again doesn't count). "Sent" means a sender took the email, not that it arrived: someone stuck
+  after "sent" has an email that's being lost on its way (the sender's own log says where).
+- **Sign-in links made by admins** – for when a resident's sign-in email isn't arriving, an admin
+  makes them a link from the sign-in log (**Sign-in link**, on those trying to sign in, on an
+  attempt they didn't get in after, or By resident): an ordinary sign-in link and code, once,
+  within a day, outside the hourly count, shown only to the admin, to send another way (a text).
+  Whoever opens it signs in as the resident; the log keeps who made it
+  (`POST /api/admin/sign-ins/link`).
 
 ## Backups
 

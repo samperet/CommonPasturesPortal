@@ -4,6 +4,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSignInLink,
+  linkOwner,
   LINK_TTL_MS,
   MAX_CODE_ATTEMPTS,
   MAX_LINKS_PER_HOUR,
@@ -68,6 +69,21 @@ describe("sign-in links", () => {
       expect(await createSignInLink(ADA, undefined, now)).not.toBe("too-many");
     expect(await createSignInLink(ADA, undefined, now)).toBe("too-many");
     expect(await createSignInLink(ADA, undefined, now + 3600_001)).not.toBe("too-many");
+  });
+
+  it("lets an admin make a link outside the hourly count, and knows whose a link is", async () => {
+    const now = Date.now();
+    for (let i = 0; i < MAX_LINKS_PER_HOUR; i++) await createSignInLink(ADA, undefined, now);
+    expect(await createSignInLink(ADA, undefined, now)).toBe("too-many");
+    const made = await createSignInLink(ADA, undefined, now, { unlimited: true });
+    if (made === "too-many") throw new Error("refused");
+    expect(made.expiresAt).toBe(new Date(now + LINK_TTL_MS).toISOString());
+    expect(await linkOwner(made.token)).toBe(ADA);
+    expect(await redeemSignInLink(made.token, now)).toMatchObject({ personId: ADA });
+    // Used, it's still known whose it was (for the log of tries); a made-up one isn't.
+    expect(await redeemSignInLink(made.token, now)).toBe("used");
+    expect(await linkOwner(made.token)).toBe(ADA);
+    expect(await linkOwner("x".repeat(32))).toBeNull();
   });
 
   it("keeps only same-site destinations, and half-hides addresses", () => {

@@ -37,6 +37,10 @@ export const FOR_RESIDENTS_LEFT_OUT: Rule[] = [
   { prefix: "push/vapid.json", why: "the app's push-notification key (a secret)" },
   { prefix: "push/subscriptions.json", why: "devices' push addresses and keys" },
   { prefix: "auth/sign-in-log.json", why: "who signed in when (only admins see it)" },
+  {
+    prefix: "auth/sign-in-attempts.json",
+    why: "who tried to sign in, and how it went (only admins see it)",
+  },
   { prefix: "auth/last-seen.json", why: "when each resident was last seen (only admins see it)" },
   { prefix: "email/log.json", why: "the email log (only admins see it)" },
   { prefix: "email/quota.json", why: "emails sent this month (only admins see it)" },
